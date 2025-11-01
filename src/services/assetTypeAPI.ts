@@ -3,7 +3,7 @@ import { AssetType } from '../types';
 import axios from './axios.customize';
 
 const getAllAssetTypesAPI = () => {
-    const token = "eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiIxIiwicm9sZSI6IkFETUlOIiwiaWF0IjoxNzYxOTY5NjIzLCJleHAiOjE3NjE5NzU2MjN9.f22WYm89_DSsZHlBzDl-n7tPTDviKcvrPfLZLLrpd3Q";
+    const token = "";
     const headers = {
         Authorization: `Bearer ${token}`
     };
