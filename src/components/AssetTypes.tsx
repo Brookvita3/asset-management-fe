@@ -58,6 +58,13 @@ export function AssetTypes() {
   const [checkAction, setCheckAction] = useState(false);
   const itemsPerPage = 10;
 
+
+
+  useEffect(() => {
+    fetchAssetTypes();
+  }, [assetTypes, checkAction]);
+
+
   // Fetch asset types from API
   const fetchAssetTypes = useCallback(async () => {
     try {
@@ -70,10 +77,6 @@ export function AssetTypes() {
       console.error('Error fetching asset types:', error);
     }
   }, []);
-
-  useEffect(() => {
-    fetchAssetTypes();
-  }, [checkAction, fetchAssetTypes]);
   // Save asset type via API
   const createAssetType = async (data: AssetType) => {
     try {

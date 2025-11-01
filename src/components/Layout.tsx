@@ -46,13 +46,13 @@ export function Layout({ children, currentUser, onLogout }: LayoutProps) {
   }, [sidebarVisible]);
 
   const navigation = [
-    // { name: 'Dashboard', href: '/', icon: LayoutDashboard, roles: [UserRole.ADMIN, UserRole.MANAGER, UserRole.STAFF] },
-    // { name: 'Tài sản', href: '/assets', icon: Package, roles: [UserRole.ADMIN, UserRole.MANAGER, UserRole.STAFF] },
+    { name: 'Dashboard', href: '/', icon: LayoutDashboard, roles: [UserRole.ADMIN, UserRole.MANAGER, UserRole.STAFF] },
+    { name: 'Tài sản', href: '/assets', icon: Package, roles: [UserRole.ADMIN, UserRole.MANAGER, UserRole.STAFF] },
     { name: 'Loại tài sản', href: '/asset-types', icon: Layers, roles: [UserRole.ADMIN] },
-  //   { name: 'Người dùng', href: '/users', icon: Users, roles: [UserRole.ADMIN] },
-  //   { name: 'Phòng ban', href: '/departments', icon: Building2, roles: [UserRole.ADMIN] },
-  //   { name: 'Báo cáo', href: '/reports', icon: BarChart3, roles: [UserRole.ADMIN, UserRole.MANAGER] },
-  //   { name: 'Cài đặt', href: '/settings', icon: Settings, roles: [UserRole.ADMIN] },
+    { name: 'Người dùng', href: '/users', icon: Users, roles: [UserRole.ADMIN] },
+    { name: 'Phòng ban', href: '/departments', icon: Building2, roles: [UserRole.ADMIN] },
+    { name: 'Báo cáo', href: '/reports', icon: BarChart3, roles: [UserRole.ADMIN, UserRole.MANAGER] },
+    { name: 'Cài đặt', href: '/settings', icon: Settings, roles: [UserRole.ADMIN] },
   ];
 
   const filteredNavigation = navigation.filter(item => 
