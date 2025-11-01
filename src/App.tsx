@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { Toaster } from './components/ui/sonner';
 import { Layout } from './components/Layout';
-import { Login } from './components/Login';
+import { Login, LoginCredentials } from './components/Login';
 import { Dashboard } from './components/Dashboard';
 import { Assets } from './components/Assets';
 import { AssetTypes } from './components/AssetTypes';
@@ -13,8 +13,10 @@ import { Settings } from './components/Settings';
 import { UserProfile } from './components/UserProfile';
 import { AuthProvider } from './contexts/AuthContext';
 import { SettingsProvider } from './contexts/SettingsContext';
-import { mockUsers } from './lib/mockData';
 import { User, UserRole } from './types';
+import { toUser } from './lib/mappers';
+import { loginAPI } from './services/authAPI';
+import { getUsersAPI } from './services/userAPI';
 
 export default function App() {
   const [currentUser, setCurrentUser] = useState<User | null>(null);
@@ -35,18 +37,40 @@ export default function App() {
     }
   }, []);
 
-  const handleLogin = (role: UserRole) => {
-    // Find a user with the specified role
-    const user = mockUsers.find(u => u.role === role);
-    if (user) {
-      setCurrentUser(user);
-      localStorage.setItem('currentUser', JSON.stringify(user));
+  const handleLogin = async ({ email, password, role }: LoginCredentials) => {
+    try {
+      const loginResponse = await loginAPI({ email, password });
+      const accessToken = loginResponse.data?.token;
+
+      if (!accessToken) {
+        throw new Error('Authentication response did not include an access token.');
+      }
+
+      localStorage.setItem('access_token', accessToken);
+
+      const usersResponse = await getUsersAPI();
+      const matchedUser = usersResponse.data?.find((user) => user.email.toLowerCase() === email.toLowerCase());
+
+      if (!matchedUser) {
+        throw new Error('Unable to find a matching user profile for the provided credentials.');
+      }
+
+      const normalizedUser = toUser(matchedUser);
+      // Ensure role aligns with the login option when demo data differs.
+      normalizedUser.role = role;
+
+      setCurrentUser(normalizedUser);
+      localStorage.setItem('currentUser', JSON.stringify(normalizedUser));
+    } catch (error) {
+      localStorage.removeItem('access_token');
+      throw error;
     }
   };
 
   const handleLogout = () => {
     setCurrentUser(null);
     localStorage.removeItem('currentUser');
+    localStorage.removeItem('access_token');
   };
 
   const handleUpdateProfile = (updatedUser: User) => {

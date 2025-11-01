@@ -1,34 +1,41 @@
 import axios from "axios";
 
+const rawBaseUrl = (import.meta as any).env.VITE_BACKEND_URL as string | undefined;
+const normalizedBaseUrl = rawBaseUrl
+  ? rawBaseUrl.replace(/\/+$/, "")
+  : "http://10.28.128.57:8080";
+
 const instance = axios.create({
-    baseURL: (import.meta as any).env.VITE_BACKEND_URL,
-})
+  baseURL: normalizedBaseUrl,
+  headers: {
+    "Content-Type": "application/json",
+  },
+});
 
-
-// Add a request interceptor
-instance.interceptors.request.use(function (config) {
-    if (typeof window !== "undefined" && window && window.localStorage &&
-        window.localStorage.getItem('access_token')) {
-        config.headers.Authorization = 'Bearer ' + window.localStorage.getItem('access_token');
+instance.interceptors.request.use(
+  (config) => {
+    if (
+      typeof window !== "undefined" &&
+      window?.localStorage?.getItem("access_token")
+    ) {
+      config.headers = config.headers ?? {};
+      config.headers.Authorization = `Bearer ${window.localStorage.getItem(
+        "access_token"
+      )}`;
     }
-    // Do something before request is sent 
     return config;
-}, function (error) {
-    // Do something with request error 
-    return Promise.reject(error);
-});
+  },
+  (error) => Promise.reject(error)
+);
 
-// Add a response interceptor
-instance.interceptors.response.use(function (response) {
-    // Any status code that lie within the range of 2xx cause this function to trigger
-    // Do something with response data
-    if (response.data && response.data.data) return response.data;
-    return response;
-}, function (error) {
-    // Any status codes that falls outside the range of 2xx cause this function to trigger
-    // Do something with response error
-    if (error.response && error.response.data) return error.response.data;
-    return Promise.reject(error);
-});
+instance.interceptors.response.use(
+  (response) => response.data ?? response,
+  (error) => {
+    const normalizedError = error?.response?.data ?? {
+      message: error?.message ?? "Unknown error",
+    };
+    return Promise.reject(normalizedError);
+  }
+);
 
 export default instance;
