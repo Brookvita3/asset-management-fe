@@ -126,17 +126,31 @@ export function Assets() {
         assetTypeResponse,
         departmentResponse,
         userResponse,
-      ] = await Promise.all([
+      ]: any = await Promise.all([
         getAssetsAPI(),
         getAllAssetTypesAPI(),
         getDepartmentsAPI(),
         getUsersAPI(),
       ]);
 
+      console.log("Assets, Asset Types, Departments, Users before mapping.", {
+        assetResponse,
+        assetTypeResponse,
+        departmentResponse,
+        userResponse,
+      });
+
       setAssets((assetResponse.data ?? []).map(toAsset));
       setAssetTypes((assetTypeResponse.data ?? []).map(toAssetType));
       setDepartments((departmentResponse.data ?? []).map(toDepartment));
       setUsers((userResponse.data ?? []).map(toUser));
+
+      console.log("Assets, Asset Types, Departments, Users loaded.", {
+        assets,
+        assetTypes,
+        departments,
+        users,
+      });
     } catch (error: any) {
       const message =
         typeof error?.message === "string"
@@ -248,18 +262,18 @@ export function Assets() {
     try {
       if (editingAsset) {
         await updateAssetAPI(Number(editingAsset.id), {
+          id: Number(editingAsset.id),
+          code: values.code,
           name: values.name,
           typeId: Number(values.typeId),
-          departmentId: values.departmentId
-            ? Number(values.departmentId)
-            : undefined,
+          assignedTo: values.assignedTo
+            ? Number(values.assignedTo)
+            : 0,
           purchaseDate: values.purchaseDate,
           value: values.value,
           description: values.description,
           status: editingAsset.status,
-          assignedTo: editingAsset.assignedTo
-            ? Number(editingAsset.assignedTo)
-            : undefined,
+          condition: editingAsset.condition,
         });
         toast.success("Đã cập nhật tài sản thành công.");
       } else {
