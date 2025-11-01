@@ -56,15 +56,17 @@ export function Login({ onLogin }: LoginProps) {
     setLoading(true);
 
     try {
+      console.log('Attempting login with:', email);
       const response = await loginAPI({ email, password });
+      console.log('Login successful, calling onLogin');
       
-      if (response.message && response.message.includes('success')) {
-        toast.success('Đăng nhập thành công!');
-        onLogin(); // Notify parent component
-      } else {
-        setError(response.message || 'Đăng nhập thất bại');
-        toast.error('Đăng nhập thất bại');
-      }
+      // If no error thrown, login successful
+      toast.success('Đăng nhập thành công!');
+      
+      // Force a small delay to ensure localStorage is updated
+      setTimeout(() => {
+        onLogin(); // Notify parent component to refresh and show main app
+      }, 100);
     } catch (err: any) {
       const errorMessage = err.message || 'Lỗi kết nối đến server';
       setError(errorMessage);
@@ -81,15 +83,17 @@ export function Login({ onLogin }: LoginProps) {
     setLoading(true);
 
     try {
+      console.log('Attempting demo login with:', demoEmail);
       const response = await loginAPI({ email: demoEmail, password: demoPassword });
+      console.log('Demo login successful, calling onLogin');
       
-      if (response.message && response.message.includes('success')) {
-        toast.success('Đăng nhập thành công!');
-        onLogin();
-      } else {
-        setError(response.message || 'Đăng nhập thất bại');
-        toast.error('Đăng nhập thất bại');
-      }
+      // If no error thrown, login successful
+      toast.success('Đăng nhập thành công!');
+      
+      // Force a small delay to ensure localStorage is updated
+      setTimeout(() => {
+        onLogin(); // Notify parent component to refresh and show main app
+      }, 100);
     } catch (err: any) {
       const errorMessage = err.message || 'Lỗi kết nối đến server';
       setError(errorMessage);
