@@ -9,23 +9,15 @@ export interface LoginRequest {
 
 export interface LoginResponse {
   message: string;
-  data: any; // Backend response structure
+  data: any;
 }
-
-// export interface RegisterRequest {
-//   name: string;
-//   email: string;
-//   password: string;
-//   departmentId: string;
-// }
 
 /**
  * Login user and store auth token + user info + role in localStorage
  */
-export const loginAPI = async (credentials: LoginRequest): Promise<LoginResponse> => {
-  try {
-    const response: any = await axios.post('/api/auth/login', credentials);
-    
+const loginAPI = (credentials: LoginRequest) => {
+  const URL_BACKEND = "/login";
+  return axios.post(URL_BACKEND, credentials).then((response: any) => {
     // Store token, user info, and role in localStorage
     if (response.data) {
       // Store access token
@@ -50,10 +42,7 @@ export const loginAPI = async (credentials: LoginRequest): Promise<LoginResponse
     }
     
     return response;
-  } catch (error) {
-    console.error('Login error:', error);
-    throw error;
-  }
+  });
 };
 
 /**
@@ -130,32 +119,22 @@ export const isAuthenticated = (): boolean => {
 /**
  * Refresh access token (if your backend supports refresh tokens)
  */
-export const refreshTokenAPI = async () => {
-  try {
-    const response = await axios.post('/api/auth/refresh');
-    
+const refreshTokenAPI = () => {
+  const URL_BACKEND = "/auth/refresh";
+  return axios.post(URL_BACKEND).then((response: any) => {
     if (response.data && response.data.access_token) {
       localStorage.setItem('access_token', response.data.access_token);
     }
-    
     return response;
-  } catch (error) {
-    console.error('Refresh token error:', error);
-    throw error;
-  }
+  });
 };
 
 /**
  * Verify token validity with backend
  */
-export const verifyTokenAPI = async () => {
-  try {
-    const response = await axios.get('/api/auth/verify');
-    return response;
-  } catch (error) {
-    console.error('Verify token error:', error);
-    throw error;
-  }
+const verifyTokenAPI = () => {
+  const URL_BACKEND = "/auth/verify";
+  return axios.get(URL_BACKEND);
 };
 
 /**
@@ -205,4 +184,11 @@ export const isManager = (): boolean => {
  */
 export const isStaff = (): boolean => {
   return hasRole(UserRole.STAFF);
+};
+
+// Export all functions
+export {
+  loginAPI,
+  refreshTokenAPI,
+  verifyTokenAPI
 };
