@@ -1,5 +1,5 @@
-import { useState } from 'react';
-import { MessageCircle, X, Send } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { MessageCircle, X, Send, Loader2 } from 'lucide-react';
 import { Button } from './ui/button';
 import { Input } from './ui/input';
 import { ScrollArea } from './ui/scroll-area';
@@ -7,27 +7,102 @@ import { ChatMessage } from '../types';
 
 export function ChatbotWidget() {
   const [isOpen, setIsOpen] = useState(false);
-  const [messages, setMessages] = useState<ChatMessage[]>([
-    {
-      id: '1',
-      role: 'assistant',
-      content: 'Xin chào! Tôi là trợ lý AI của hệ thống Quản lý Tài sản. Tôi có thể giúp bạn:\n\n• Hướng dẫn cách tạo tài sản mới\n• Hướng dẫn gán tài sản cho nhân viên\n• Hướng dẫn đánh giá tài sản\n• Giải thích các quy trình và chính sách\n\nBạn cần hỗ trợ gì?',
-      timestamp: new Date(),
-    },
-  ]);
+  const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [input, setInput] = useState('');
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
-  const knowledgeBase = {
-    'tạo tài sản': 'Để tạo tài sản mới:\n1. Vào menu "Tài sản"\n2. Nhấn nút "Thêm tài sản mới"\n3. Điền đầy đủ thông tin: Tên, Mã, Loại tài sản, Ngày mua, Giá trị\n4. Mã tài sản phải là duy nhất\n5. Giá trị phải lớn hơn 0\n6. Nhấn "Lưu" để hoàn tất',
-    'gán tài sản': 'Để gán tài sản cho nhân viên:\n1. Vào danh sách tài sản\n2. Chọn tài sản có trạng thái "Trong kho"\n3. Nhấn nút "Gán"\n4. Chọn nhân viên trong phòng ban của bạn\n5. Xác nhận gán\n\nLưu ý: Chỉ Manager và Admin mới có quyền gán tài sản.',
-    'thu hồi tài sản': 'Để thu hồi tài sản:\n1. Tìm tài sản đang sử dụng\n2. Nhấn nút "Thu hồi"\n3. Nhập lý do thu hồi (nếu cần)\n4. Xác nhận\n\nTài sản sẽ chuyển về trạng thái "Trong kho".',
-    'đánh giá tài sản': 'Để đánh giá tài sản:\n1. Chọn tài sản cần đánh giá\n2. Nhấn "Đánh giá"\n3. Chọn tình trạng: Tốt / Cần sửa / Lỗi thời\n4. Nhập ghi chú (bắt buộc nếu không phải "Tốt")\n5. Lưu đánh giá\n\nĐánh giá được khuyến nghị thực hiện hàng năm.',
-    'báo cáo': 'Hệ thống cung cấp các loại báo cáo:\n\n1. Báo cáo theo phòng ban: Thống kê số lượng và giá trị tài sản\n2. Báo cáo theo trạng thái: Phân bổ tài sản theo trạng thái\n3. Báo cáo theo nhân viên: Chi tiết tài sản từng người\n\nBạn có thể xuất báo cáo ra file CSV.',
-    'phân quyền': 'Hệ thống có 3 vai trò:\n\n• Admin: Toàn quyền quản trị hệ thống\n• Manager: Quản lý tài sản trong phòng ban\n• Staff: Xem tài sản được giao\n\nMỗi vai trò có quyền hạn riêng biệt.',
+  // API configuration
+  const API_BASE_URL = 'http://localhost:8080';
+  const USER_ID = 1; // Hardcoded for demo purposes
+
+  // API call functions
+  const sendChatMessage = async (message: string) => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/chatbot/chat?userId=${USER_ID}`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          message: message,
+          userId: USER_ID,
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
+      const data = await response.json();
+      return data.data; // Return ChatbotResponse
+    } catch (error) {
+      console.error('Error sending message:', error);
+      throw error;
+    }
   };
 
-  const handleSend = () => {
-    if (!input.trim()) return;
+  const loadChatHistory = async () => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/chatbot/history?userId=${USER_ID}`);
+
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
+      const data = await response.json();
+      return data.data; // Return List<ChatHistoryResponse>
+    } catch (error) {
+      console.error('Error loading chat history:', error);
+      throw error;
+    }
+  };
+
+  // Load chat history when widget opens
+  useEffect(() => {
+    if (isOpen) {
+      const initializeChat = async () => {
+        try {
+          const history = await loadChatHistory();
+
+          if (history && history.length > 0) {
+            // Convert ChatHistoryResponse to ChatMessage format
+            const chatMessages: ChatMessage[] = history.map((msg: any) => ({
+              id: msg.id.toString(),
+              role: msg.direction === 'QUESTION' ? 'user' : 'assistant',
+              content: msg.content,
+              timestamp: new Date(msg.timestamp),
+            }));
+            setMessages(chatMessages);
+          } else {
+            // Default welcome message if no history
+            setMessages([{
+              id: '1',
+              role: 'assistant',
+              content: 'Xin chào! Tôi là trợ lý AI của hệ thống Quản lý Tài sản. Tôi có thể giúp bạn:\n\n• Hướng dẫn cách tạo tài sản mới\n• Hướng dẫn gán tài sản cho nhân viên\n• Hướng dẫn đánh giá tài sản\n• Giải thích các quy trình và chính sách\n\nBạn cần hỗ trợ gì?',
+              timestamp: new Date(),
+            }]);
+          }
+        } catch (error) {
+          console.error('Failed to load chat history:', error);
+          setError('Không thể tải lịch sử chat. Vui lòng thử lại sau.');
+          // Set default message on error
+          setMessages([{
+            id: '1',
+            role: 'assistant',
+            content: 'Xin chào! Tôi là trợ lý AI của hệ thống Quản lý Tài sản. Tôi có thể giúp bạn:\n\n• Hướng dẫn cách tạo tài sản mới\n• Hướng dẫn gán tài sản cho nhân viên\n• Hướng dẫn đánh giá tài sản\n• Giải thích các quy trình và chính sách\n\nBạn cần hỗ trợ gì?',
+            timestamp: new Date(),
+          }]);
+        }
+      };
+
+      initializeChat();
+    }
+  }, [isOpen]);
+
+  
+  const handleSend = async () => {
+    if (!input.trim() || isLoading) return;
 
     const userMessage: ChatMessage = {
       id: Date.now().toString(),
@@ -37,30 +112,47 @@ export function ChatbotWidget() {
     };
 
     setMessages(prev => [...prev, userMessage]);
-
-    // Simple keyword matching
-    const lowerInput = input.toLowerCase();
-    let response = 'Xin lỗi, tôi chưa hiểu câu hỏi của bạn. Bạn có thể hỏi về:\n• Cách tạo tài sản\n• Cách gán tài sản\n• Cách thu hồi tài sản\n• Cách đánh giá tài sản\n• Báo cáo\n• Phân quyền';
-
-    for (const [keyword, answer] of Object.entries(knowledgeBase)) {
-      if (lowerInput.includes(keyword)) {
-        response = answer;
-        break;
-      }
-    }
-
-    const assistantMessage: ChatMessage = {
-      id: (Date.now() + 1).toString(),
-      role: 'assistant',
-      content: response,
-      timestamp: new Date(),
-    };
-
-    setTimeout(() => {
-      setMessages(prev => [...prev, assistantMessage]);
-    }, 500);
-
     setInput('');
+    setIsLoading(true);
+    setError(null);
+
+    try {
+      const response = await sendChatMessage(input);
+
+      if (response.success) {
+        const assistantMessage: ChatMessage = {
+          id: (Date.now() + 1).toString(),
+          role: 'assistant',
+          content: response.answer,
+          timestamp: new Date(),
+        };
+
+        setMessages(prev => [...prev, assistantMessage]);
+      } else {
+        const errorMessage: ChatMessage = {
+          id: (Date.now() + 1).toString(),
+          role: 'assistant',
+          content: `Xin lỗi, có lỗi xảy ra: ${response.message}`,
+          timestamp: new Date(),
+        };
+
+        setMessages(prev => [...prev, errorMessage]);
+      }
+    } catch (error) {
+      console.error('Error in handleSend:', error);
+      setError('Không thể gửi tin nhắn. Vui lòng thử lại sau.');
+
+      const errorMessage: ChatMessage = {
+        id: (Date.now() + 1).toString(),
+        role: 'assistant',
+        content: 'Xin lỗi, có lỗi kết nối với server. Vui lòng thử lại sau.',
+        timestamp: new Date(),
+      };
+
+      setMessages(prev => [...prev, errorMessage]);
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   return (
@@ -129,13 +221,19 @@ export function ChatbotWidget() {
                       })}
                     </p>
                   </div>
-                </div>
+                </div>  
               ))}
             </div>
           </ScrollArea>
 
           {/* Input */}
           <div className="p-4 border-t">
+            {/* Error Display */}
+            {error && (
+              <div className="mb-2 p-2 bg-red-100 border border-red-400 text-red-700 rounded text-sm">
+                {error}
+              </div>
+            )}
             <div className="flex gap-2">
               <Input
                 value={input}
@@ -143,9 +241,19 @@ export function ChatbotWidget() {
                 onKeyPress={(e) => e.key === 'Enter' && handleSend()}
                 placeholder="Nhập câu hỏi của bạn..."
                 className="flex-1"
+                disabled={isLoading}
               />
-              <Button onClick={handleSend} size="icon" className="bg-blue-600">
-                <Send className="w-4 h-4" />
+              <Button
+                onClick={handleSend}
+                size="icon"
+                className="bg-blue-600"
+                disabled={isLoading}
+              >
+                {isLoading ? (
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                ) : (
+                  <Send className="w-4 h-4" />
+                )}
               </Button>
             </div>
           </div>
