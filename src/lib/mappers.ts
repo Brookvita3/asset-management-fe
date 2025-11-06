@@ -6,9 +6,12 @@ import {
   Department,
   User,
   UserRole,
+  ActionType,
+  AssetHistory,
 } from "../types";
 import {
   AssetDTO,
+  AssetHistoryDTO,
   AssetTypeDTO,
   DepartmentDTO,
   UserDTO,
@@ -94,4 +97,17 @@ export const toAsset = (dto: AssetDTO): Asset => ({
   description: dto.description,
   createdBy: dto.createdBy ?? "",
   createdAt: dto.createdAt ? new Date(dto.createdAt) : new Date(),
+});
+export const toAssetHistory = (dto: AssetHistoryDTO): AssetHistory => ({
+  id: String(dto.id),
+  assetId: String(dto.assetId),
+  actionType: dto.actionType as ActionType,
+  performedBy: dto.performedBy,
+  performedAt: dto.performedAt ? new Date(dto.performedAt) : new Date(),
+  details: dto.details ?? "",
+  notes: dto.notes ?? "",
+  previousStatus: dto.previousStatus
+    ? parseAssetStatus(dto.previousStatus)
+    : undefined,
+  newStatus: dto.newStatus ? parseAssetStatus(dto.newStatus) : undefined,
 });

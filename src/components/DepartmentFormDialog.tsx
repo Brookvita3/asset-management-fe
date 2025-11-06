@@ -164,6 +164,7 @@ export function DepartmentFormDialog({
             <div className="space-y-2">
               <Label htmlFor="department-manager">Trưởng phòng</Label>
               <Select
+                disabled={true}
                 value={formValues.managerId ?? "none"}
                 onValueChange={(value) =>
                   setFormValues((prev) => ({

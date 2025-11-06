@@ -46,7 +46,7 @@ export function Layout({ children, currentUser, onLogout }: LayoutProps) {
   }, [sidebarVisible]);
 
   const navigation = [
-    // { name: 'Dashboard', href: '/', icon: LayoutDashboard, roles: [UserRole.ADMIN, UserRole.MANAGER, UserRole.STAFF] },
+    { name: 'Dashboard', href: '/', icon: LayoutDashboard, roles: [UserRole.ADMIN, UserRole.MANAGER, UserRole.STAFF] },
     { name: 'Tài sản', href: '/assets', icon: Package, roles: [UserRole.ADMIN, UserRole.MANAGER, UserRole.STAFF] },
     { name: 'Loại tài sản', href: '/asset-types', icon: Layers, roles: [UserRole.ADMIN] },
     { name: 'Người dùng', href: '/users', icon: Users, roles: [UserRole.ADMIN] },
@@ -151,8 +151,8 @@ export function Layout({ children, currentUser, onLogout }: LayoutProps) {
                 key={item.name}
                 to={item.href}
                 className={`flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${active
-                    ? 'bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400'
-                    : 'text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700'
+                  ? 'bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400'
+                  : 'text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700'
                   }`}
               >
                 <Icon className="w-5 h-5" />
