@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Bell, Check } from 'lucide-react';
+import { Bell, Check, X } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import {
   Popover,
@@ -14,7 +14,8 @@ import {
   Notification,
   getNotificationsByUserIdAPI, 
   markAsReadAPI,
-  markAllAsReadAPI 
+  markAllAsReadAPI,
+  deleteNotificationAPI 
 } from '../services/notificationAPI';
 import { toast } from 'sonner';
 
@@ -97,6 +98,21 @@ export function NotificationBell() {
     }
   };
 
+  const handleDeleteNotification = async (e: React.MouseEvent, notificationId: number) => {
+    // Prevent triggering the notification click event
+    e.stopPropagation();
+
+    try {
+      await deleteNotificationAPI(notificationId);
+      // Remove from local state
+      setNotifications(prev => prev.filter(n => n.id !== notificationId));
+      toast.success('Đã xóa thông báo');
+    } catch (error) {
+      console.error('Error deleting notification:', error);
+      toast.error('Không thể xóa thông báo');
+    }
+  };
+
   const getNotificationColor = (type: string) => {
     switch (type.toUpperCase()) {
       case 'ERROR':
@@ -172,12 +188,14 @@ export function NotificationBell() {
               {notifications.map((notification) => (
                 <div
                   key={notification.id}
-                  className={`p-4 hover:bg-gray-50 cursor-pointer transition-colors ${
+                  className={`relative group flex items-center gap-2 p-4 hover:bg-gray-50 transition-colors ${
                     !notification.isRead ? 'bg-blue-50/50' : ''
                   } ${getNotificationColor(notification.type)}`}
-                  onClick={() => handleNotificationClick(notification)}
                 >
-                  <div className="flex justify-between items-start gap-2">
+                  <div 
+                    className="flex-1 flex justify-between items-start gap-2 cursor-pointer"
+                    onClick={() => handleNotificationClick(notification)}
+                  >
                     <div className="flex-1">
                       <p className="text-sm font-medium text-gray-900">
                         {notification.title}
@@ -193,6 +211,17 @@ export function NotificationBell() {
                       <div className="w-2 h-2 bg-blue-600 rounded-full flex-shrink-0 mt-1" />
                     )}
                   </div>
+                  
+                  {/* Delete button - shows on hover, centered vertically */}
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="h-8 w-8 p-0 opacity-0 group-hover:opacity-100 transition-opacity hover:bg-gray-200 hover:text-gray-700 flex-shrink-0"
+                    onClick={(e: React.MouseEvent) => handleDeleteNotification(e, notification.id)}
+                    title="Xóa thông báo"
+                  >
+                    <X className="w-4 h-4" />
+                  </Button>
                 </div>
               ))}
             </div>
