@@ -1,28 +1,19 @@
-import { AssetType } from "../types";
 import axios from "./axios.customize";
+import { ApiResponse } from "../types/api";
+import { AssetTypeDTO } from "../types/backend";
 
-const getAllAssetTypesAPI = () => {
-  const URL_BACKEND = "/asset-types";
-  return axios.get(URL_BACKEND);
-};
+type AssetTypePayload = Pick<AssetTypeDTO, "name" | "description" | "isActive">;
 
-const createAssetTypeAPI = (data: AssetType) => {
-  const URL_BACKEND = "/asset-types";
-  return axios.post(URL_BACKEND, data);
-};
+const BASE_PATH = "/asset-types";
 
-const updateAssetTypeAPI = (id: number, data: AssetType) => {
-  const URL_BACKEND = `/asset-types/${id}`;
-  return axios.put(URL_BACKEND, data);
-};
+export const getAllAssetTypesAPI = () =>
+  axios.get<ApiResponse<AssetTypeDTO[]>>(BASE_PATH);
 
-const deleteAssetTypeAPI = (id: number) => {
-  return axios.delete(`/asset-types/${id}`);
-};
+export const createAssetTypeAPI = (data: AssetTypePayload) =>
+  axios.post<ApiResponse<null>>(BASE_PATH, data);
 
-export {
-  getAllAssetTypesAPI,
-  createAssetTypeAPI,
-  updateAssetTypeAPI,
-  deleteAssetTypeAPI,
-};
+export const updateAssetTypeAPI = (id: number, data: AssetTypePayload) =>
+  axios.put<ApiResponse<null>>(`${BASE_PATH}/${id}`, data);
+
+export const deleteAssetTypeAPI = (id: number) =>
+  axios.delete<ApiResponse<null>>(`${BASE_PATH}/${id}`);

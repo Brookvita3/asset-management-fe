@@ -6,7 +6,7 @@ import {
   mockUsers,
   mockDepartments
 } from '../lib/mockData';
-import { AssetStatus, UserRole } from '../types';
+import { Asset, AssetStatus, UserRole, User } from '../types';
 import { formatCurrency, getStatusLabel, getStatusColor } from '../lib/utils';
 import { useAuth } from '../contexts/AuthContext';
 import {
@@ -22,28 +22,54 @@ import {
   Cell,
   Legend,
 } from 'recharts';
+import { Assets } from './Assets';
+import { useEffect, useState } from 'react';
+import { getAssetsAPI } from '../services/assetAPI';
+import { getUsersAPI } from '../services/userAPI';
+import { getDepartmentsAPI } from '../services/departmentAPI';
 
 export function Dashboard() {
   const { currentUser } = useAuth();
+  const [assets, setAssets] = useState<Asset[]>([]);
+  const [users, setUsers] = useState<User[]>([]);
+  const [departments, setDepartments] = useState(mockDepartments);
+
+
+  const fetchData = async () => {
+    const [assetsResponse, usersResponse, departmentsResponse]: any = await Promise.all([
+      getAssetsAPI(),
+      getUsersAPI(),
+      getDepartmentsAPI()
+    ]);
+    setAssets(assetsResponse.data);
+    setUsers(usersResponse.data);
+    setDepartments(departmentsResponse.data);
+  }
+
+
+  useEffect(() => {
+    fetchData();
+  }, []);
+
+  console.log('All assets:', assets);
 
   // Filter assets based on user role
   const userAssets = !currentUser ? [] :
     currentUser.role === UserRole.ADMIN
-      ? mockAssets
+      ? assets
       : currentUser.role === UserRole.MANAGER
-        ? mockAssets.filter(a => a.departmentId === currentUser.departmentId)
-        : mockAssets.filter(a => a.assignedTo === currentUser.id);
-
+        ? assets.filter(a => String(a.departmentId) === String(currentUser.departmentId))
+        : assets.filter(a => String(a.assignedTo) === String(currentUser.id));
   const totalAssets = userAssets.length;
   const totalValue = userAssets.reduce((sum, asset) => sum + asset.value, 0);
   const inStockCount = userAssets.filter(a => a.status === AssetStatus.IN_STOCK).length;
   const inUseCount = userAssets.filter(a => a.status === AssetStatus.IN_USE).length;
 
   // Department stats
-  const departmentStats = mockDepartments
+  const departmentStats = departments
     .filter(dept => dept.isActive)
     .map(dept => {
-      const deptAssets = mockAssets.filter(a => a.departmentId === dept.id);
+      const deptAssets = assets.filter(a => a.departmentId === dept.id);
       return {
         name: dept.name,
         assets: deptAssets.length,
@@ -178,8 +204,8 @@ export function Dashboard() {
         <CardContent>
           <div className="space-y-4">
             {recentAssets.map((asset) => {
-              const assignedUser = mockUsers.find(u => u.id === asset.assignedTo);
-              const department = mockDepartments.find(d => d.id === asset.departmentId);
+              const assignedUser = users.find(u => u.id === asset.assignedTo);
+              const department = departments.find(d => d.id === asset.departmentId);
 
               return (
                 <div key={asset.id} className="flex items-center justify-between py-3 border-b last:border-b-0 dark:border-gray-800">

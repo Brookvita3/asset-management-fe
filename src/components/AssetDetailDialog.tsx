@@ -1,31 +1,53 @@
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from './ui/dialog';
-import { Badge } from './ui/badge';
-import { Separator } from './ui/separator';
-import { Asset } from '../types';
-import { 
-  mockAssetTypes, 
-  mockDepartments, 
-  mockUsers,
-  mockAssetHistory 
-} from '../lib/mockData';
-import { formatCurrency, formatDate, formatDateTime, getStatusLabel, getStatusColor, getConditionLabel, getConditionColor } from '../lib/utils';
-import { Calendar, DollarSign, Package, User, Building2, ClipboardList } from 'lucide-react';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "./ui/dialog";
+import { Badge } from "./ui/badge";
+import { Separator } from "./ui/separator";
+// Legacy mock data reference preserved during API migration.
+// import { mockAssetTypes, mockDepartments, mockUsers, mockAssetHistory } from "../lib/mockData";
+import { Asset, AssetHistory, AssetType, Department, User } from "../types";
+import {
+  formatCurrency,
+  formatDate,
+  formatDateTime,
+  getConditionColor,
+  getConditionLabel,
+  getStatusColor,
+  getStatusLabel,
+} from "../lib/utils";
+import { Building2, Calendar, ClipboardList, Package, User as UserIcon } from "lucide-react";
 
 interface AssetDetailDialogProps {
   asset: Asset;
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  assetType?: AssetType | null;
+  department?: Department | null;
+  assignedUser?: User | null;
+  createdBy?: User | null;
+  users?: User[];
+  history?: AssetHistory[];
 }
 
-export function AssetDetailDialog({ asset, open, onOpenChange }: AssetDetailDialogProps) {
-  const assetType = mockAssetTypes.find(t => t.id === asset.typeId);
-  const department = mockDepartments.find(d => d.id === asset.departmentId);
-  const assignedUser = mockUsers.find(u => u.id === asset.assignedTo);
-  const createdBy = mockUsers.find(u => u.id === asset.createdBy);
-  
-  const history = mockAssetHistory
-    .filter(h => h.assetId === asset.id)
-    .sort((a, b) => new Date(b.performedAt).getTime() - new Date(a.performedAt).getTime());
+export function AssetDetailDialog({
+  asset,
+  open,
+  onOpenChange,
+  assetType,
+  department,
+  assignedUser,
+  createdBy,
+  users,
+  history = [],
+}: AssetDetailDialogProps) {
+  const sortedHistory = [...history].sort(
+    (a, b) =>
+      new Date(b.performedAt).getTime() - new Date(a.performedAt).getTime()
+  );
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -33,12 +55,11 @@ export function AssetDetailDialog({ asset, open, onOpenChange }: AssetDetailDial
         <DialogHeader>
           <DialogTitle>Chi tiết tài sản</DialogTitle>
           <DialogDescription>
-            Xem thông tin chi tiết và lịch sử tài sản
+            Thông tin tổng quan và lịch sử hoạt động của tài sản.
           </DialogDescription>
         </DialogHeader>
 
         <div className="space-y-6">
-          {/* Basic Info */}
           <div className="grid grid-cols-2 gap-6">
             <div className="space-y-4">
               <div>
@@ -51,7 +72,7 @@ export function AssetDetailDialog({ asset, open, onOpenChange }: AssetDetailDial
               </div>
               <div>
                 <p className="text-sm text-gray-600 mb-1">Loại tài sản</p>
-                <p className="text-gray-900">{assetType?.name}</p>
+                <p className="text-gray-900">{assetType?.name ?? "—"}</p>
               </div>
             </div>
 
@@ -79,8 +100,17 @@ export function AssetDetailDialog({ asset, open, onOpenChange }: AssetDetailDial
 
           <Separator />
 
-          {/* Additional Info */}
           <div className="grid grid-cols-2 gap-6">
+            <div className="flex items-start gap-3">
+              <Calendar className="w-5 h-5 text-gray-400 mt-0.5" />
+              <div>
+                <p className="text-sm text-gray-600">Ngày mua</p>
+                <p className="text-gray-900">
+                  {formatDate(asset.purchaseDate)}
+                </p>
+              </div>
+            </div>
+
             {department && (
               <div className="flex items-start gap-3">
                 <Building2 className="w-5 h-5 text-gray-400 mt-0.5" />
@@ -93,7 +123,7 @@ export function AssetDetailDialog({ asset, open, onOpenChange }: AssetDetailDial
 
             {assignedUser && (
               <div className="flex items-start gap-3">
-                <User className="w-5 h-5 text-gray-400 mt-0.5" />
+                <UserIcon className="w-5 h-5 text-gray-400 mt-0.5" />
                 <div>
                   <p className="text-sm text-gray-600">Người sử dụng</p>
                   <p className="text-gray-900">{assignedUser.name}</p>
@@ -102,21 +132,15 @@ export function AssetDetailDialog({ asset, open, onOpenChange }: AssetDetailDial
               </div>
             )}
 
-            <div className="flex items-start gap-3">
-              <Calendar className="w-5 h-5 text-gray-400 mt-0.5" />
-              <div>
-                <p className="text-sm text-gray-600">Ngày mua</p>
-                <p className="text-gray-900">{formatDate(asset.purchaseDate)}</p>
+            {createdBy && (
+              <div className="flex items-start gap-3">
+                <Package className="w-5 h-5 text-gray-400 mt-0.5" />
+                <div>
+                  <p className="text-sm text-gray-600">Người tạo</p>
+                  <p className="text-gray-900">{createdBy.name}</p>
+                </div>
               </div>
-            </div>
-
-            <div className="flex items-start gap-3">
-              <User className="w-5 h-5 text-gray-400 mt-0.5" />
-              <div>
-                <p className="text-sm text-gray-600">Người tạo</p>
-                <p className="text-gray-900">{createdBy?.name}</p>
-              </div>
-            </div>
+            )}
           </div>
 
           {asset.description && (
@@ -124,56 +148,59 @@ export function AssetDetailDialog({ asset, open, onOpenChange }: AssetDetailDial
               <Separator />
               <div>
                 <p className="text-sm text-gray-600 mb-2">Mô tả</p>
-                <p className="text-gray-900">{asset.description}</p>
+                <p className="text-gray-900 whitespace-pre-line">
+                  {asset.description}
+                </p>
               </div>
             </>
           )}
 
           <Separator />
 
-          {/* History Timeline */}
           <div>
             <div className="flex items-center gap-2 mb-4">
               <ClipboardList className="w-5 h-5 text-gray-400" />
               <h3 className="text-gray-900">Lịch sử hoạt động</h3>
             </div>
-            
             <div className="space-y-4">
-              {history.length === 0 ? (
-                <p className="text-gray-500 text-center py-4">Chưa có lịch sử hoạt động</p>
+              {sortedHistory.length === 0 ? (
+                <p className="text-gray-500 text-center py-4">
+                  Chưa có lịch sử hoạt động nào được ghi nhận.
+                </p>
               ) : (
-                history.map((item, index) => {
-                  const performer = mockUsers.find(u => u.id === item.performedBy);
-                  
-                  return (
-                    <div key={item.id} className="flex gap-4">
-                      <div className="relative">
-                        <div className="w-2 h-2 bg-blue-600 rounded-full mt-2" />
-                        {index < history.length - 1 && (
-                          <div className="absolute top-4 left-1/2 -translate-x-1/2 w-0.5 h-full bg-gray-200" />
-                        )}
-                      </div>
-                      <div className="flex-1 pb-4">
-                        <div className="flex items-start justify-between">
-                          <div>
-                            <p className="text-gray-900">{item.details}</p>
-                            <p className="text-sm text-gray-600 mt-1">
-                              {performer?.name} • {formatDateTime(item.performedAt)}
+                sortedHistory.map((item, index) => (
+                  <div key={item.id} className="flex gap-4">
+                    <div className="relative">
+                      <div className="w-2 h-2 bg-blue-600 rounded-full mt-2" />
+                      {index < sortedHistory.length - 1 && (
+                        <div className="absolute top-4 left-1/2 -translate-x-1/2 w-0.5 h-full bg-gray-200" />
+                      )}
+                    </div>
+                    <div className="flex-1 pb-4">
+                      <div className="flex items-start justify-between">
+                        <div>
+                          <p className="text-gray-900">{item.details}</p>
+                          <p className="text-sm text-gray-600 mt-1">
+                            {item.performedBy
+                              // check nếu performedBy match 1 user trong users prop thì hiển thị tên user đó
+                              ? `${users?.find((user) => user.id === String(item.performedBy))?.name} • ${formatDateTime(item.performedAt)}`
+                              : formatDateTime(item.performedAt)}
+                          </p>
+                          {item.notes && (
+                            <p className="text-sm text-gray-600 mt-2 italic">
+                              "{item.notes}"
                             </p>
-                            {item.notes && (
-                              <p className="text-sm text-gray-600 mt-2 italic">"{item.notes}"</p>
-                            )}
-                          </div>
-                          {item.newStatus && (
-                            <Badge className={getStatusColor(item.newStatus)}>
-                              {getStatusLabel(item.newStatus)}
-                            </Badge>
                           )}
                         </div>
+                        {item.newStatus && (
+                          <Badge className={getStatusColor(item.newStatus)}>
+                            {getStatusLabel(item.newStatus)}
+                          </Badge>
+                        )}
                       </div>
                     </div>
-                  );
-                })
+                  </div>
+                ))
               )}
             </div>
           </div>
