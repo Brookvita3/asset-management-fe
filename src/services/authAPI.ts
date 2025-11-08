@@ -14,7 +14,7 @@ interface LoginResponse {
 
 export const loginAPI = async (payload: LoginPayload) => {
   try {
-    const response = await axios.post<LoginResponse>('/login', payload);
+    const response = await axios.post<LoginResponse>('/api/v1/login', payload);
     console.log(response.data);
     return response.data;
   } catch (error) {

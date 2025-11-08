@@ -57,10 +57,10 @@ export default defineConfig({
     // cors: true,
     // host: true,
     proxy: {
-      '/*': {
+      '/api/v1': {
         target: 'http://16.176.162.249:8080',
         changeOrigin: true,
-        secure: false,
+        rewrite: (path) => path.replace(/^\/api\/v1/, '/api/v1'),
       },
     },
     // port: 3000,
