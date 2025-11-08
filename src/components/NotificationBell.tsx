@@ -41,7 +41,7 @@ export function NotificationBell() {
 
     const interval = setInterval(() => {
       fetchNotifications();
-    }, 5000); // 5 seconds
+    }, 50000000); // 5 seconds
 
     return () => clearInterval(interval);
   }, [currentUser?.id]);
