@@ -57,7 +57,7 @@ export default defineConfig({
     // cors: true,
     // host: true,
     proxy: {
-      '/api': {
+      '/*': {
         target: 'http://16.176.162.249:8080',
         changeOrigin: true,
         secure: false,
