@@ -1,11 +1,10 @@
-import axios from "./axios.customize";
-import { ApiResponse } from "../types/api";
-import { UserDTO } from "../types/backend";
+import axios from './axios.customize';
+import { ApiResponse } from '../types/api';
+import { UserDTO } from '../types/backend';
 
-const BASE_PATH = "/users";
+const BASE_PATH = '/api/v1/users';
 
-export const getUsersAPI = () =>
-  axios.get<ApiResponse<UserDTO[]>>(BASE_PATH);
+export const getUsersAPI = () => axios.get<ApiResponse<UserDTO[]>>(BASE_PATH);
 
 export const getUserByIdAPI = (id: number) =>
   axios.get<ApiResponse<UserDTO>>(`${BASE_PATH}/${id}`);
@@ -21,4 +20,3 @@ export const updateUserAPI = (id: number, payload: Partial<UserDTO>) =>
 
 export const deleteUserAPI = (id: number) =>
   axios.delete<ApiResponse<null>>(`${BASE_PATH}/${id}`);
-

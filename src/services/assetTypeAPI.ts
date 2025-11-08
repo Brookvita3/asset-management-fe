@@ -1,10 +1,10 @@
-import axios from "./axios.customize";
-import { ApiResponse } from "../types/api";
-import { AssetTypeDTO } from "../types/backend";
+import axios from './axios.customize';
+import { ApiResponse } from '../types/api';
+import { AssetTypeDTO } from '../types/backend';
 
-type AssetTypePayload = Pick<AssetTypeDTO, "name" | "description" | "isActive">;
+type AssetTypePayload = Pick<AssetTypeDTO, 'name' | 'description' | 'isActive'>;
 
-const BASE_PATH = "/asset-types";
+const BASE_PATH = '/api/v1/asset-types';
 
 export const getAllAssetTypesAPI = () =>
   axios.get<ApiResponse<AssetTypeDTO[]>>(BASE_PATH);
