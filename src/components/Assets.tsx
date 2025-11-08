@@ -326,8 +326,11 @@ export function Assets() {
         typeof error?.message === "string"
           ? error.message
           : "Không thể lưu tài sản.";
-      toast.error(message);
-      throw error;
+      if (message.includes("Duplicate")) {
+        toast.error("Mã tài sản đã tồn tại. Vui lòng sử dụng mã khác.");
+        throw error;
+      }
+      else toast.error(message);
     } finally {
       setIsSubmitting(false);
     }
