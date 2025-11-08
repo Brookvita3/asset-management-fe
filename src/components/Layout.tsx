@@ -51,7 +51,7 @@ export function Layout({ children, currentUser, onLogout }: LayoutProps) {
     { name: 'Loại tài sản', href: '/asset-types', icon: Layers, roles: [UserRole.ADMIN] },
     { name: 'Người dùng', href: '/users', icon: Users, roles: [UserRole.ADMIN] },
     { name: 'Phòng ban', href: '/departments', icon: Building2, roles: [UserRole.ADMIN] },
-    // { name: 'Báo cáo', href: '/reports', icon: BarChart3, roles: [UserRole.ADMIN, UserRole.MANAGER] },
+    { name: 'Báo cáo', href: '/reports', icon: BarChart3, roles: [UserRole.ADMIN, UserRole.MANAGER] },
     { name: 'Cài đặt', href: '/settings', icon: Settings, roles: [UserRole.ADMIN] },
   ];
 

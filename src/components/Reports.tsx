@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Download, Calendar } from 'lucide-react';
 import { Button } from './ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
@@ -31,28 +31,61 @@ import {
   Cell,
   Legend,
 } from 'recharts';
-import { mockAssets, mockDepartments, mockUsers, currentUser } from '../lib/mockData';
-import { UserRole, AssetStatus } from '../types';
+import { mockAssets, mockDepartments, mockUsers } from '../lib/mockData';
+import { UserRole, AssetStatus, Asset, User } from '../types';
 import { formatCurrency, exportToCSV } from '../lib/utils';
+import { useAuth } from '../contexts/AuthContext';
+import { getAssetsAPI } from '../services/assetAPI';
+import { getUsersAPI } from '../services/userAPI';
+import { getDepartmentsAPI } from '../services/departmentAPI';
 
 export function Reports() {
   const [selectedDepartment, setSelectedDepartment] = useState<string>('all');
 
+  const { currentUser } = useAuth();
+  const [assets, setAssets] = useState<Asset[]>([]);
+  const [users, setUsers] = useState<User[]>([]);
+  const [departments, setDepartments] = useState(mockDepartments);
+
+
+  const fetchData = async () => {
+    const [assetsResponse, usersResponse, departmentsResponse]: any = await Promise.all([
+      getAssetsAPI(),
+      getUsersAPI(),
+      getDepartmentsAPI()
+    ]);
+    setAssets(assetsResponse.data);
+    setUsers(usersResponse.data);
+    setDepartments(departmentsResponse.data);
+    console.log('Current User:', currentUser);
+    console.log('All assets:', assets);
+    console.log('All users:', users);
+    console.log('All departments:', departments);
+  }
+
+
+
+
+  useEffect(() => {
+    fetchData();
+  }, []);
+
+
   // Filter assets based on role and selected department
-  let reportAssets = currentUser.role === UserRole.ADMIN
-    ? mockAssets
-    : mockAssets.filter(a => a.departmentId === currentUser.departmentId);
+  let reportAssets = currentUser?.role === UserRole.ADMIN
+    ? assets
+    : assets.filter(a => String(a.departmentId) === currentUser?.departmentId);
 
   if (selectedDepartment !== 'all') {
     reportAssets = reportAssets.filter(a => a.departmentId === selectedDepartment);
   }
 
   // Department statistics
-  const departmentStats = mockDepartments
-    .filter(dept => 
-      currentUser.role === UserRole.ADMIN 
-        ? dept.isActive 
-        : dept.id === currentUser.departmentId
+  const departmentStats = departments
+    .filter(dept =>
+      currentUser?.role === UserRole.ADMIN
+        ? dept.isActive
+        : String(dept.id) === currentUser?.departmentId
     )
     .map(dept => {
       const deptAssets = reportAssets.filter(a => a.departmentId === dept.id);
@@ -87,18 +120,18 @@ export function Reports() {
   // Employee assets
   const employeeStats = mockUsers
     .filter(u => {
-      if (currentUser.role === UserRole.ADMIN) return u.isActive;
-      return u.departmentId === currentUser.departmentId && u.isActive;
+      if (currentUser?.role === UserRole.ADMIN) return u.isActive;
+      return String(u.departmentId) === currentUser?.departmentId && u.isActive;
     })
     .map(user => {
-      const userAssets = reportAssets.filter(a => a.assignedTo === user.id);
+      const userAssets = reportAssets.filter(a => String(a.assignedTo) === user.id);
       const totalValue = userAssets.reduce((sum, a) => sum + a.value, 0);
 
       return {
         id: user.id,
         name: user.name,
         email: user.email,
-        department: mockDepartments.find(d => d.id === user.departmentId)?.name || '-',
+        department: mockDepartments.find(d => String(d.id) === user.departmentId)?.name || '-',
         assetCount: userAssets.length,
         totalValue,
         assets: userAssets,
@@ -110,7 +143,7 @@ export function Reports() {
     const data = departmentStats.map(stat => ({
       'Phòng ban': stat.name,
       'Tổng tài sản': stat.total,
-      'Trong kho': stat.inStock,
+      // 'Trong kho': stat.inStock,
       'Đang sử dụng': stat.inUse,
       'Tổng giá trị': stat.value,
     }));
@@ -135,7 +168,7 @@ export function Reports() {
           <h1 className="text-gray-900">Báo cáo</h1>
           <p className="text-gray-600">Thống kê và báo cáo tài sản</p>
         </div>
-        {currentUser.role === UserRole.ADMIN && (
+        {currentUser?.role === UserRole.ADMIN && (
           <Select value={selectedDepartment} onValueChange={setSelectedDepartment}>
             <SelectTrigger className="w-48">
               <SelectValue placeholder="Chọn phòng ban" />
@@ -174,7 +207,7 @@ export function Reports() {
                       cx="50%"
                       cy="50%"
                       labelLine={false}
-                      label={({ name, value, percent }) => 
+                      label={({ name, value, percent }) =>
                         `${name}: ${value} (${(percent * 100).toFixed(0)}%)`
                       }
                       outerRadius={80}
@@ -228,7 +261,7 @@ export function Reports() {
                   <TableRow>
                     <TableHead>Phòng ban</TableHead>
                     <TableHead className="text-right">Tổng tài sản</TableHead>
-                    <TableHead className="text-right">Trong kho</TableHead>
+                    {/* <TableHead className="text-right">Trong kho</TableHead> */}
                     <TableHead className="text-right">Đang sử dụng</TableHead>
                     <TableHead className="text-right">Tổng giá trị</TableHead>
                   </TableRow>
@@ -238,7 +271,7 @@ export function Reports() {
                     <TableRow key={stat.id}>
                       <TableCell className="text-gray-900">{stat.name}</TableCell>
                       <TableCell className="text-right">{stat.total}</TableCell>
-                      <TableCell className="text-right">{stat.inStock}</TableCell>
+                      {/* <TableCell className="text-right">{stat.inStock}</TableCell> */}
                       <TableCell className="text-right">{stat.inUse}</TableCell>
                       <TableCell className="text-right">{formatCurrency(stat.value)}</TableCell>
                     </TableRow>
@@ -248,9 +281,9 @@ export function Reports() {
                     <TableCell className="text-right">
                       {departmentStats.reduce((sum, s) => sum + s.total, 0)}
                     </TableCell>
-                    <TableCell className="text-right">
+                    {/* <TableCell className="text-right">
                       {departmentStats.reduce((sum, s) => sum + s.inStock, 0)}
-                    </TableCell>
+                    </TableCell> */}
                     <TableCell className="text-right">
                       {departmentStats.reduce((sum, s) => sum + s.inUse, 0)}
                     </TableCell>

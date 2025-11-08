@@ -21,3 +21,4 @@ export const updateUserAPI = (id: number, payload: Partial<UserDTO>) =>
 
 export const deleteUserAPI = (id: number) =>
   axios.delete<ApiResponse<null>>(`${BASE_PATH}/${id}`);
+
