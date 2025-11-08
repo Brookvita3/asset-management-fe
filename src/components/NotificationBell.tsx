@@ -35,13 +35,13 @@ export function NotificationBell() {
     }
   }, [currentUser?.id]);
 
-  // Auto-refresh notifications every 30 seconds
+  // Auto-refresh notifications every 1 minute (cron job)
   useEffect(() => {
     if (!currentUser?.id) return;
 
     const interval = setInterval(() => {
       fetchNotifications();
-    }, 30000); // 30 seconds
+    }, 5000); // 5 seconds
 
     return () => clearInterval(interval);
   }, [currentUser?.id]);
