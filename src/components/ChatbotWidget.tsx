@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, Fragment } from "react";
-import { MessageCircle, X, Send, Loader2 } from "lucide-react";
+import { MessageCircle, X, Send, Loader2, GripVertical } from "lucide-react";
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
 import { ChatMessage } from "../types";
@@ -37,6 +37,11 @@ export function ChatbotWidget() {
   const [error, setError] = useState<string | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+  
+  // Resizable state
+  const [size, setSize] = useState({ width: 384, height: 500 }); // 384px = w-96
+  const [isResizing, setIsResizing] = useState(false);
+  const resizeRef = useRef<{ startX: number; startY: number; startWidth: number; startHeight: number } | null>(null);
 
   const { currentUser } = useAuth();
 
@@ -51,6 +56,47 @@ export function ChatbotWidget() {
       setTimeout(() => inputRef.current?.focus(), 100);
     }
   }, [isOpen]);
+
+  // Handle resize
+  const handleMouseDown = (e: React.MouseEvent) => {
+    e.preventDefault();
+    setIsResizing(true);
+    resizeRef.current = {
+      startX: e.clientX,
+      startY: e.clientY,
+      startWidth: size.width,
+      startHeight: size.height,
+    };
+  };
+
+  useEffect(() => {
+    const handleMouseMove = (e: MouseEvent) => {
+      if (!isResizing || !resizeRef.current) return;
+
+      const deltaX = resizeRef.current.startX - e.clientX;
+      const deltaY = e.clientY - resizeRef.current.startY;
+
+      const newWidth = Math.max(300, Math.min(800, resizeRef.current.startWidth + deltaX));
+      const newHeight = Math.max(400, Math.min(800, resizeRef.current.startHeight + deltaY));
+
+      setSize({ width: newWidth, height: newHeight });
+    };
+
+    const handleMouseUp = () => {
+      setIsResizing(false);
+      resizeRef.current = null;
+    };
+
+    if (isResizing) {
+      document.addEventListener('mousemove', handleMouseMove);
+      document.addEventListener('mouseup', handleMouseUp);
+    }
+
+    return () => {
+      document.removeEventListener('mousemove', handleMouseMove);
+      document.removeEventListener('mouseup', handleMouseUp);
+    };
+  }, [isResizing]);
 
   // Load chat history when widget opens
   useEffect(() => {
@@ -177,7 +223,27 @@ export function ChatbotWidget() {
 
       {/* Chat Window */}
       {isOpen && (
-        <div className="fixed top-1/2 bottom-6 right-6 w-96 h-[500px] max-h-[50vh] bg-white rounded-lg shadow-2xl flex flex-col border border-gray-200 z-50">
+        <div 
+          className="fixed bottom-6 right-6 bg-white rounded-lg shadow-2xl flex flex-col border border-gray-200 z-50"
+          style={{ 
+            width: `${size.width}px`, 
+            height: `${size.height}px`,
+            minWidth: '300px',
+            minHeight: '400px',
+            maxWidth: '800px',
+            maxHeight: '800px',
+            userSelect: isResizing ? 'none' : 'auto',
+          }}
+        >
+          {/* Resize Handle - Top Left */}
+          <div
+            onMouseDown={handleMouseDown}
+            className="absolute -top-1 -left-1 w-8 h-8 cursor-nw-resize hover:bg-blue-100 rounded-tl-lg flex items-center justify-center group z-10"
+            title="Kéo để thay đổi kích thước"
+          >
+            <GripVertical className="w-4 h-4 text-gray-400 group-hover:text-blue-600 rotate-45" />
+          </div>
+
           {/* Header */}
           <div className="flex items-center justify-between p-4 border-b bg-blue-600 text-white rounded-t-lg flex-shrink-0">
             <div className="flex items-center gap-2">

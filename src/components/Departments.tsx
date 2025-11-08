@@ -5,6 +5,13 @@ import { Input } from "./ui/input";
 import { Badge } from "./ui/badge";
 import { Card, CardContent } from "./ui/card";
 import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "./ui/select";
+import {
   Table,
   TableBody,
   TableCell,
@@ -40,6 +47,8 @@ export function Departments() {
   const [departments, setDepartments] = useState<Department[]>([]);
   const [users, setUsers] = useState<User[]>([]);
   const [searchTerm, setSearchTerm] = useState("");
+  const [sortBy, setSortBy] = useState<'name'>('name');
+  const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('asc');
   const [dialogOpen, setDialogOpen] = useState(false);
   const [selectedDepartment, setSelectedDepartment] = useState<Department | null>(null);
   const [currentPage, setCurrentPage] = useState(1);
@@ -81,8 +90,17 @@ export function Departments() {
         dept.name.toLowerCase().includes(keyword)
       );
     }
+
+    // Sort departments
+    result.sort((a, b) => {
+      const aValue = a.name ?? '';
+      const bValue = b.name ?? '';
+      const comparison = aValue.localeCompare(bValue);
+      return sortOrder === 'asc' ? comparison : -comparison;
+    });
+
     return result;
-  }, [departments, searchTerm]);
+  }, [departments, searchTerm, sortBy, sortOrder]);
 
   const totalPages = Math.max(1, Math.ceil(filteredDepartments.length / ITEMS_PER_PAGE));
   const startIndex = (currentPage - 1) * ITEMS_PER_PAGE;
@@ -91,7 +109,7 @@ export function Departments() {
 
   useEffect(() => {
     setCurrentPage(1);
-  }, [searchTerm]);
+  }, [searchTerm, sortBy, sortOrder]);
 
   useEffect(() => {
     if (currentPage > totalPages) {
@@ -164,14 +182,33 @@ export function Departments() {
 
       <Card>
         <CardContent className="pt-6">
-          <div className="relative max-w-md">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-            <Input
-              placeholder="Tìm kiếm phòng ban..."
-              value={searchTerm}
-              onChange={(event) => setSearchTerm(event.target.value)}
-              className="pl-10"
-            />
+          <div className="flex items-center gap-4">
+            <div className="relative flex-1 max-w-md">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+              <Input
+                placeholder="Tìm kiếm phòng ban..."
+                value={searchTerm}
+                onChange={(event) => setSearchTerm(event.target.value)}
+                className="pl-10"
+              />
+            </div>
+
+            <Select
+              value={`${sortBy}-${sortOrder}`}
+              onValueChange={(value: string) => {
+                const [field, order] = value.split('-') as [typeof sortBy, typeof sortOrder];
+                setSortBy(field);
+                setSortOrder(order);
+              }}
+            >
+              <SelectTrigger className="w-[180px]">
+                <SelectValue placeholder="Sắp xếp" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="name-asc">Tên A-Z</SelectItem>
+                <SelectItem value="name-desc">Tên Z-A</SelectItem>
+              </SelectContent>
+            </Select>
           </div>
         </CardContent>
       </Card>
