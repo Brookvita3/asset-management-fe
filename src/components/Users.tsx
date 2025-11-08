@@ -140,6 +140,7 @@ export function Users() {
     setIsSubmitting(true);
     try {
       if (selectedUser) {
+        console.log(values.isActive);
         await updateUserAPI(Number(selectedUser.id), {
           name: values.name,
           email: values.email,
@@ -324,7 +325,7 @@ export function Users() {
                             >
                               <Edit className="w-4 h-4" />
                             </Button>
-                            <Button
+                            {/* <Button
                               variant="ghost"
                               size="icon"
                               title="Vô hiệu hóa"
@@ -333,7 +334,7 @@ export function Users() {
                               disabled={!user.isActive}
                             >
                               <UserX className="w-4 h-4" />
-                            </Button>
+                            </Button> */}
                           </div>
                         </TableCell>
                       </TableRow>

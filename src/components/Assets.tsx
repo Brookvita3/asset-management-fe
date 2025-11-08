@@ -275,8 +275,8 @@ export function Assets() {
           code: values.code,
           name: values.name,
           typeId: Number(values.typeId),
-          assignedTo: values.assignedTo
-            ? Number(values.assignedTo)
+          assignedTo: assignedUserEntity
+            ? Number(assignedUserEntity.id)
             : 0,
           purchaseDate: values.purchaseDate,
           value: values.value,
@@ -284,6 +284,7 @@ export function Assets() {
           status: editingAsset.status,
           condition: editingAsset.condition,
         });
+        console.log("Updated asset:", values);
         toast.success("Đã cập nhật tài sản thành công.");
       } else {
         await createAssetAPI({
