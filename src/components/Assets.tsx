@@ -91,6 +91,7 @@ import { getDepartmentsAPI } from "../services/departmentAPI";
 import { getUsersAPI } from "../services/userAPI";
 import { toAsset, toAssetHistory, toAssetType, toDepartment, toUser } from "../lib/mappers";
 import { AssetHistoryDTO } from "../types/backend";
+import { createNotificationAPI } from "../services/notificationAPI";
 
 const ITEMS_PER_PAGE = 10;
 
@@ -287,6 +288,9 @@ export function Assets() {
     setIsSubmitting(true);
     try {
       if (editingAsset) {
+        // Get the assigned user before update
+        const previousAssignedUserId = editingAsset.assignedTo;
+        
         await updateAssetAPI(Number(editingAsset.id), {
           id: Number(editingAsset.id),
           code: values.code,
@@ -303,6 +307,28 @@ export function Assets() {
         });
         console.log("Updated asset:", values);
         toast.success("Đã cập nhật tài sản thành công.");
+
+        // Send notification to assigned employee (if exists and user is admin/manager)
+        if (
+          currentUser &&
+          (currentUser.role === UserRole.ADMIN || currentUser.role === UserRole.MANAGER) &&
+          previousAssignedUserId
+        ) {
+          try {
+            await createNotificationAPI({
+              userId: Number(previousAssignedUserId),
+              assetId: Number(editingAsset.id),
+              title: "Tài sản được cập nhật",
+              message: `Tài sản "${values.name}" (${values.code}) của bạn đã được cập nhật bởi ${currentUser.role === UserRole.ADMIN ? 'Admin' : 'Manager'}.`,
+              type: "INFO",
+              isRead: false,
+            });
+            console.log("Notification sent to user:", previousAssignedUserId);
+          } catch (notifError) {
+            console.error("Failed to send notification:", notifError);
+            // Don't fail the whole operation if notification fails
+          }
+        }
       } else {
         await createAssetAPI({
           code: values.code,
@@ -326,8 +352,11 @@ export function Assets() {
         typeof error?.message === "string"
           ? error.message
           : "Không thể lưu tài sản.";
-      toast.error(message);
-      throw error;
+      if (message.includes("Duplicate")) {
+        toast.error("Mã tài sản đã tồn tại. Vui lòng sử dụng mã khác.");
+        throw error;
+      }
+      else toast.error(message);
     } finally {
       setIsSubmitting(false);
     }

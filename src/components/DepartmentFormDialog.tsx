@@ -225,7 +225,9 @@ export function DepartmentFormDialog({
             >
               Hủy
             </Button>
-            <Button type="submit" className="bg-blue-600" disabled={isSubmitting}>
+            <Button
+              disabled={department && hasActiveEmployees && !formValues.isActive || isSubmitting}
+              type="submit" className="bg-blue-600">
               {department ? "Cập nhật" : "Tạo phòng ban"}
             </Button>
           </DialogFooter>

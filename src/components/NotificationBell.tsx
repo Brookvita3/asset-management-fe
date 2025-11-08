@@ -10,12 +10,12 @@ import { Button } from './ui/button';
 import { Badge } from './ui/badge';
 import { formatDateTime } from '../lib/utils';
 import { useAuth } from '../contexts/AuthContext';
-import { 
+import {
   Notification,
-  getNotificationsByUserIdAPI, 
+  getNotificationsByUserIdAPI,
   markAsReadAPI,
   markAllAsReadAPI,
-  deleteNotificationAPI 
+  deleteNotificationAPI
 } from '../services/notificationAPI';
 import { toast } from 'sonner';
 
@@ -41,7 +41,7 @@ export function NotificationBell() {
 
     const interval = setInterval(() => {
       fetchNotifications();
-    }, 50000000); // 5 seconds
+    }, 5000); // 5 seconds
 
     return () => clearInterval(interval);
   }, [currentUser?.id]);
@@ -188,11 +188,10 @@ export function NotificationBell() {
               {notifications.map((notification) => (
                 <div
                   key={notification.id}
-                  className={`relative group flex items-center gap-2 p-4 hover:bg-gray-50 transition-colors ${
-                    !notification.isRead ? 'bg-blue-50/50' : ''
-                  } ${getNotificationColor(notification.type)}`}
+                  className={`relative group flex items-center gap-2 p-4 hover:bg-gray-50 transition-colors ${!notification.isRead ? 'bg-blue-50/50' : ''
+                    } ${getNotificationColor(notification.type)}`}
                 >
-                  <div 
+                  <div
                     className="flex-1 flex justify-between items-start gap-2 cursor-pointer"
                     onClick={() => handleNotificationClick(notification)}
                   >
@@ -211,7 +210,7 @@ export function NotificationBell() {
                       <div className="w-2 h-2 bg-blue-600 rounded-full flex-shrink-0 mt-1" />
                     )}
                   </div>
-                  
+
                   {/* Delete button - shows on hover, centered vertically */}
                   <Button
                     variant="ghost"
