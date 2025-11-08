@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { useSearchParams } from "react-router-dom";
 import {
   Plus,
   Search,
@@ -95,6 +96,7 @@ const ITEMS_PER_PAGE = 10;
 
 export function Assets() {
   const { currentUser } = useAuth();
+  const [searchParams, setSearchParams] = useSearchParams();
 
   const [assets, setAssets] = useState<Asset[]>([]);
   const [assetHistories, setAssetHistories] = useState<AssetHistory[]>([]);
@@ -188,6 +190,21 @@ export function Assets() {
   useEffect(() => {
     fetchAssets();
   }, [fetchAssets]);
+
+  // Auto-open asset detail dialog when assetId is in query params (from notification click)
+  useEffect(() => {
+    const assetIdParam = searchParams.get('assetId');
+    if (assetIdParam && assets.length > 0) {
+      const asset = assets.find(a => String(a.id) === assetIdParam);
+      if (asset) {
+        setSelectedAsset(asset);
+        setDetailDialogOpen(true);
+        // Remove the query param after opening
+        searchParams.delete('assetId');
+        setSearchParams(searchParams);
+      }
+    }
+  }, [searchParams, assets, setSearchParams]);
 
   const filteredAssets = useMemo(() => {
     if (!currentUser) return [];

@@ -1,75 +1,220 @@
-import { useState } from 'react';
-import { MessageCircle, X, Send } from 'lucide-react';
-import { Button } from './ui/button';
-import { Input } from './ui/input';
-import { ScrollArea } from './ui/scroll-area';
-import { ChatMessage } from '../types';
+import { useState, useEffect, useRef, Fragment } from "react";
+import { MessageCircle, X, Send, Loader2, GripVertical } from "lucide-react";
+import { Button } from "./ui/button";
+import { Input } from "./ui/input";
+import { ChatMessage } from "../types";
+import { sendChatMessageAPI, loadChatHistoryAPI } from "../services/chatbotAPI";
+import { createPortal } from "react-dom";
+import { useAuth } from "../contexts/AuthContext";
+
+// Typing indicator component
+const TypingIndicator = () => (
+  <div className="flex justify-start">
+    <div className="bg-gray-100 rounded-lg p-3 max-w-[85%]">
+      <div className="flex space-x-2">
+        <div
+          className="w-2 h-2 bg-gray-400 rounded-full animate-bounce"
+          style={{ animationDelay: "0ms" }}
+        ></div>
+        <div
+          className="w-2 h-2 bg-gray-400 rounded-full animate-bounce"
+          style={{ animationDelay: "150ms" }}
+        ></div>
+        <div
+          className="w-2 h-2 bg-gray-400 rounded-full animate-bounce"
+          style={{ animationDelay: "300ms" }}
+        ></div>
+      </div>
+    </div>
+  </div>
+);
 
 export function ChatbotWidget() {
   const [isOpen, setIsOpen] = useState(false);
-  const [messages, setMessages] = useState<ChatMessage[]>([
-    {
-      id: '1',
-      role: 'assistant',
-      content: 'Xin chào! Tôi là trợ lý AI của hệ thống Quản lý Tài sản. Tôi có thể giúp bạn:\n\n• Hướng dẫn cách tạo tài sản mới\n• Hướng dẫn gán tài sản cho nhân viên\n• Hướng dẫn đánh giá tài sản\n• Giải thích các quy trình và chính sách\n\nBạn cần hỗ trợ gì?',
-      timestamp: new Date(),
-    },
-  ]);
-  const [input, setInput] = useState('');
+  const [messages, setMessages] = useState<ChatMessage[]>([]);
+  const [input, setInput] = useState("");
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const messagesEndRef = useRef<HTMLDivElement>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
+  
+  // Resizable state
+  const [size, setSize] = useState({ width: 384, height: 500 }); // 384px = w-96
+  const [isResizing, setIsResizing] = useState(false);
+  const resizeRef = useRef<{ startX: number; startY: number; startWidth: number; startHeight: number } | null>(null);
 
-  const knowledgeBase = {
-    'tạo tài sản': 'Để tạo tài sản mới:\n1. Vào menu "Tài sản"\n2. Nhấn nút "Thêm tài sản mới"\n3. Điền đầy đủ thông tin: Tên, Mã, Loại tài sản, Ngày mua, Giá trị\n4. Mã tài sản phải là duy nhất\n5. Giá trị phải lớn hơn 0\n6. Nhấn "Lưu" để hoàn tất',
-    'gán tài sản': 'Để gán tài sản cho nhân viên:\n1. Vào danh sách tài sản\n2. Chọn tài sản có trạng thái "Trong kho"\n3. Nhấn nút "Gán"\n4. Chọn nhân viên trong phòng ban của bạn\n5. Xác nhận gán\n\nLưu ý: Chỉ Manager và Admin mới có quyền gán tài sản.',
-    'thu hồi tài sản': 'Để thu hồi tài sản:\n1. Tìm tài sản đang sử dụng\n2. Nhấn nút "Thu hồi"\n3. Nhập lý do thu hồi (nếu cần)\n4. Xác nhận\n\nTài sản sẽ chuyển về trạng thái "Trong kho".',
-    'đánh giá tài sản': 'Để đánh giá tài sản:\n1. Chọn tài sản cần đánh giá\n2. Nhấn "Đánh giá"\n3. Chọn tình trạng: Tốt / Cần sửa / Lỗi thời\n4. Nhập ghi chú (bắt buộc nếu không phải "Tốt")\n5. Lưu đánh giá\n\nĐánh giá được khuyến nghị thực hiện hàng năm.',
-    'báo cáo': 'Hệ thống cung cấp các loại báo cáo:\n\n1. Báo cáo theo phòng ban: Thống kê số lượng và giá trị tài sản\n2. Báo cáo theo trạng thái: Phân bổ tài sản theo trạng thái\n3. Báo cáo theo nhân viên: Chi tiết tài sản từng người\n\nBạn có thể xuất báo cáo ra file CSV.',
-    'phân quyền': 'Hệ thống có 3 vai trò:\n\n• Admin: Toàn quyền quản trị hệ thống\n• Manager: Quản lý tài sản trong phòng ban\n• Staff: Xem tài sản được giao\n\nMỗi vai trò có quyền hạn riêng biệt.',
+  const { currentUser } = useAuth();
+
+  // Auto scroll to bottom when new messages arrive
+  useEffect(() => {
+    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [messages, isLoading]);
+
+  // Focus input when chat opens
+  useEffect(() => {
+    if (isOpen) {
+      setTimeout(() => inputRef.current?.focus(), 100);
+    }
+  }, [isOpen]);
+
+  // Handle resize
+  const handleMouseDown = (e: React.MouseEvent) => {
+    e.preventDefault();
+    setIsResizing(true);
+    resizeRef.current = {
+      startX: e.clientX,
+      startY: e.clientY,
+      startWidth: size.width,
+      startHeight: size.height,
+    };
   };
 
-  const handleSend = () => {
-    if (!input.trim()) return;
+  useEffect(() => {
+    const handleMouseMove = (e: MouseEvent) => {
+      if (!isResizing || !resizeRef.current) return;
+
+      const deltaX = resizeRef.current.startX - e.clientX;
+      const deltaY = e.clientY - resizeRef.current.startY;
+
+      const newWidth = Math.max(300, Math.min(800, resizeRef.current.startWidth + deltaX));
+      const newHeight = Math.max(400, Math.min(800, resizeRef.current.startHeight + deltaY));
+
+      setSize({ width: newWidth, height: newHeight });
+    };
+
+    const handleMouseUp = () => {
+      setIsResizing(false);
+      resizeRef.current = null;
+    };
+
+    if (isResizing) {
+      document.addEventListener('mousemove', handleMouseMove);
+      document.addEventListener('mouseup', handleMouseUp);
+    }
+
+    return () => {
+      document.removeEventListener('mousemove', handleMouseMove);
+      document.removeEventListener('mouseup', handleMouseUp);
+    };
+  }, [isResizing]);
+
+  // Load chat history when widget opens
+  useEffect(() => {
+    if (isOpen) {
+      const initializeChat = async () => {
+        try {
+          const response: any = await loadChatHistoryAPI(
+            currentUser?.id || "1"
+          );
+          const history = response.data;
+
+          if (history && history.length > 0) {
+            // Convert ChatHistoryResponse to ChatMessage format
+            const chatMessages: ChatMessage[] = history.map((msg: any) => ({
+              id: msg.id.toString(),
+              role: msg.direction === "QUESTION" ? "user" : "assistant",
+              content: msg.content,
+              timestamp: new Date(msg.timestamp),
+            }));
+            // Sort by timestamp to ensure correct order (oldest first)
+            chatMessages.sort(
+              (a, b) => a.timestamp.getTime() - b.timestamp.getTime()
+            );
+            setMessages(chatMessages);
+          } else {
+            // Default welcome message if no history
+            setMessages([
+              {
+                id: "1",
+                role: "assistant",
+                content: "Xin chào! Tôi là trợ lý AI. Tôi có thể giúp bạn gì?",
+                timestamp: new Date(),
+              },
+            ]);
+          }
+        } catch (error) {
+          console.error("Failed to load chat history:", error);
+          setError("Không thể tải lịch sử chat. Vui lòng thử lại sau.");
+          // Set default message on error
+          setMessages([
+            {
+              id: "1",
+              role: "assistant",
+              content: "Xin chào! Tôi là trợ lý AI. Tôi có thể giúp bạn gì?",
+              timestamp: new Date(),
+            },
+          ]);
+        }
+      };
+
+      initializeChat();
+    }
+  }, [isOpen]);
+
+  const handleSend = async () => {
+    if (!input.trim() || isLoading) return;
 
     const userMessage: ChatMessage = {
       id: Date.now().toString(),
-      role: 'user',
+      role: "user",
       content: input,
       timestamp: new Date(),
     };
 
-    setMessages(prev => [...prev, userMessage]);
+    setMessages((prev) => [...prev, userMessage]);
+    setInput("");
+    setIsLoading(true);
+    setError(null);
 
-    // Simple keyword matching
-    const lowerInput = input.toLowerCase();
-    let response = 'Xin lỗi, tôi chưa hiểu câu hỏi của bạn. Bạn có thể hỏi về:\n• Cách tạo tài sản\n• Cách gán tài sản\n• Cách thu hồi tài sản\n• Cách đánh giá tài sản\n• Báo cáo\n• Phân quyền';
+    try {
+      const response: any = await sendChatMessageAPI(
+        input,
+        currentUser?.id || "1"
+      );
 
-    for (const [keyword, answer] of Object.entries(knowledgeBase)) {
-      if (lowerInput.includes(keyword)) {
-        response = answer;
-        break;
+      if (response.data.success) {
+        const assistantMessage: ChatMessage = {
+          id: (Date.now() + 1).toString(),
+          role: "assistant",
+          content: response.data.answer,
+          timestamp: new Date(),
+        };
+
+        setMessages((prev) => [...prev, assistantMessage]);
+      } else {
+        const errorMessage: ChatMessage = {
+          id: (Date.now() + 1).toString(),
+          role: "assistant",
+          content: `Xin lỗi, có lỗi xảy ra: ${response.message}`,
+          timestamp: new Date(),
+        };
+
+        setMessages((prev) => [...prev, errorMessage]);
       }
+    } catch (error) {
+      console.error("Error in handleSend:", error);
+      setError("Không thể gửi tin nhắn. Vui lòng thử lại sau.");
+
+      const errorMessage: ChatMessage = {
+        id: (Date.now() + 1).toString(),
+        role: "assistant",
+        content: "Xin lỗi, có lỗi kết nối với server. Vui lòng thử lại sau.",
+        timestamp: new Date(),
+      };
+
+      setMessages((prev) => [...prev, errorMessage]);
+    } finally {
+      setIsLoading(false);
     }
-
-    const assistantMessage: ChatMessage = {
-      id: (Date.now() + 1).toString(),
-      role: 'assistant',
-      content: response,
-      timestamp: new Date(),
-    };
-
-    setTimeout(() => {
-      setMessages(prev => [...prev, assistantMessage]);
-    }, 500);
-
-    setInput('');
   };
 
-  return (
+  return createPortal(
     <>
       {/* Chat Button */}
       {!isOpen && (
         <Button
           onClick={() => setIsOpen(true)}
-          className="fixed bottom-6 right-6 w-14 h-14 rounded-full shadow-lg bg-blue-600 hover:bg-blue-700"
+          className="fixed bottom-6 right-6 w-14 h-14 rounded-full shadow-lg bg-blue-600 hover:bg-blue-700 text-white z-50"
           size="icon"
         >
           <MessageCircle className="w-6 h-6" />
@@ -78,13 +223,33 @@ export function ChatbotWidget() {
 
       {/* Chat Window */}
       {isOpen && (
-        <div className="fixed bottom-6 right-6 w-96 h-[600px] bg-white rounded-lg shadow-2xl flex flex-col border border-gray-200">
+        <div 
+          className="fixed bottom-6 right-6 bg-white rounded-lg shadow-2xl flex flex-col border border-gray-200 z-50"
+          style={{ 
+            width: `${size.width}px`, 
+            height: `${size.height}px`,
+            minWidth: '300px',
+            minHeight: '400px',
+            maxWidth: '800px',
+            maxHeight: '800px',
+            userSelect: isResizing ? 'none' : 'auto',
+          }}
+        >
+          {/* Resize Handle - Top Left */}
+          <div
+            onMouseDown={handleMouseDown}
+            className="absolute -top-1 -left-1 w-8 h-8 cursor-nw-resize hover:bg-blue-100 rounded-tl-lg flex items-center justify-center group z-10"
+            title="Kéo để thay đổi kích thước"
+          >
+            <GripVertical className="w-4 h-4 text-gray-400 group-hover:text-blue-600 rotate-45" />
+          </div>
+
           {/* Header */}
-          <div className="flex items-center justify-between p-4 border-b bg-blue-600 text-white rounded-t-lg">
+          <div className="flex items-center justify-between p-4 border-b bg-blue-600 text-white rounded-t-lg flex-shrink-0">
             <div className="flex items-center gap-2">
               <MessageCircle className="w-5 h-5" />
               <div>
-                <h3>Trợ lý AI</h3>
+                <h3 className="font-semibold">Trợ lý AI</h3>
                 <p className="text-xs opacity-90">Hỗ trợ 24/7</p>
               </div>
             </div>
@@ -99,58 +264,136 @@ export function ChatbotWidget() {
           </div>
 
           {/* Messages */}
-          <ScrollArea className="flex-1 p-4">
+          <div className="flex-1 overflow-y-auto overflow-x-hidden p-4 min-h-0">
             <div className="space-y-4">
               {messages.map((message) => (
                 <div
                   key={message.id}
                   className={`flex ${
-                    message.role === 'user' ? 'justify-end' : 'justify-start'
+                    message.role === "user" ? "justify-end" : "justify-start"
                   }`}
                 >
                   <div
-                    className={`max-w-[80%] rounded-lg p-3 ${
-                      message.role === 'user'
-                        ? 'bg-blue-600 text-white'
-                        : 'bg-gray-100 text-gray-900'
+                    className={`max-w-[85%] rounded-lg p-3 break-words ${
+                      message.role === "user"
+                        ? "bg-blue-600 text-white"
+                        : "bg-gray-100 text-gray-900"
                     }`}
                   >
-                    <p className="text-sm whitespace-pre-line">{message.content}</p>
+                    <p className="text-sm whitespace-pre-line break-words overflow-x-auto">
+                      {renderWithBreaks(normalizeText(message.content))}
+                    </p>
                     <p
                       className={`text-xs mt-1 ${
-                        message.role === 'user'
-                          ? 'text-blue-100'
-                          : 'text-gray-500'
+                        message.role === "user"
+                          ? "text-blue-100"
+                          : "text-gray-500"
                       }`}
                     >
-                      {message.timestamp.toLocaleTimeString('vi-VN', {
-                        hour: '2-digit',
-                        minute: '2-digit',
+                      {message.timestamp.toLocaleTimeString("vi-VN", {
+                        hour: "2-digit",
+                        minute: "2-digit",
                       })}
                     </p>
                   </div>
                 </div>
               ))}
+
+              {/* Typing Indicator */}
+              {isLoading && <TypingIndicator />}
+
+              <div ref={messagesEndRef} />
             </div>
-          </ScrollArea>
+          </div>
 
           {/* Input */}
-          <div className="p-4 border-t">
+          <div className="p-4 border-t flex-shrink-0">
+            {/* Error Display */}
+            {error && (
+              <div className="mb-2 p-2 bg-red-100 border border-red-400 text-red-700 rounded text-sm">
+                {error}
+              </div>
+            )}
             <div className="flex gap-2">
               <Input
+                ref={inputRef}
                 value={input}
                 onChange={(e) => setInput(e.target.value)}
-                onKeyPress={(e) => e.key === 'Enter' && handleSend()}
+                onKeyDown={(e) => e.key === "Enter" && handleSend()}
                 placeholder="Nhập câu hỏi của bạn..."
                 className="flex-1"
+                disabled={isLoading}
               />
-              <Button onClick={handleSend} size="icon" className="bg-blue-600">
-                <Send className="w-4 h-4" />
+              <Button
+                onClick={handleSend}
+                size="icon"
+                className="bg-blue-600 hover:bg-blue-700 text-white"
+                disabled={isLoading}
+              >
+                {isLoading ? (
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                ) : (
+                  <Send className="w-4 h-4" />
+                )}
               </Button>
             </div>
           </div>
         </div>
       )}
-    </>
+    </>,
+    document.body
   );
+}
+
+export function normalizeText(s?: string): string {
+  if (!s) return "";
+  let out = s.trim(); // loại bỏ khoảng trắng ở đầu/cuối nếu có
+
+  // ------------------------------------------------------------
+  // 1. Thử unstringify nếu backend trả về chuỗi dạng "\"abc\nxyz\""
+  // ------------------------------------------------------------
+  try {
+    if (
+      (out.startsWith('"') && out.endsWith('"')) ||
+      out.includes("\\n") ||
+      out.includes("\\u")
+    ) {
+      const parsed = JSON.parse(out);
+      if (typeof parsed === "string") out = parsed;
+    }
+  } catch {
+    // ignore parse fail
+  }
+
+  // ------------------------------------------------------------
+  // 2. Chuyển escape newline thành newline thật
+  // ------------------------------------------------------------
+  out = out
+    .replace(/\\r\\n/g, "\n")
+    .replace(/\\n/g, "\n")
+    .replace(/\\r/g, "\n");
+
+  // ------------------------------------------------------------
+  // 3. Loại bỏ **xuống dòng đầu nội dung**
+  //    Ví dụ: "\n\nXin chào" → "Xin chào"
+  // ------------------------------------------------------------
+  out = out.replace(/^\n+/, "");
+
+  // ------------------------------------------------------------
+  // 4. Trim lại cuối để tránh dư một ký tự xuống dòng
+  // ------------------------------------------------------------
+  out = out.trimEnd();
+
+  console.log("Normalized text:", JSON.stringify(out));
+  return out;
+}
+
+function renderWithBreaks(text?: string) {
+  if (!text) return null;
+  return text.split(/\r?\n/).map((line, i, arr) => (
+    <Fragment key={i}>
+      {line === "" ? <>&nbsp;</> : line}
+      {i < arr.length - 1 && <br />}
+    </Fragment>
+  ));
 }
