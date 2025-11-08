@@ -1,4 +1,4 @@
-import axios from "./axios.customize";
+import axios from './axios.customize';
 
 interface LoginPayload {
   email: string;
@@ -12,5 +12,13 @@ interface LoginResponse {
   };
 }
 
-export const loginAPI = (payload: LoginPayload) =>
-  axios.post<LoginResponse>("/login", payload);
+export const loginAPI = async (payload: LoginPayload) => {
+  try {
+    const response = await axios.post<LoginResponse>('/login', payload);
+    console.log(response.data);
+    return response.data;
+  } catch (error) {
+    console.error(error);
+    throw error;
+  }
+};
