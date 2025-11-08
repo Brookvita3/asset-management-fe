@@ -1,10 +1,11 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, Fragment } from "react";
 import { MessageCircle, X, Send, Loader2 } from "lucide-react";
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
 import { ChatMessage } from "../types";
 import { sendChatMessageAPI, loadChatHistoryAPI } from "../services/chatbotAPI";
 import { createPortal } from "react-dom";
+import { useAuth } from "../contexts/AuthContext";
 
 // Typing indicator component
 const TypingIndicator = () => (
@@ -37,7 +38,7 @@ export function ChatbotWidget() {
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
-  const USER_ID = 1; // Hardcoded for demo purposes
+  const { currentUser } = useAuth();
 
   // Auto scroll to bottom when new messages arrive
   useEffect(() => {
@@ -56,7 +57,9 @@ export function ChatbotWidget() {
     if (isOpen) {
       const initializeChat = async () => {
         try {
-          const response: any = await loadChatHistoryAPI(USER_ID);
+          const response: any = await loadChatHistoryAPI(
+            currentUser?.id || "1"
+          );
           const history = response.data;
 
           if (history && history.length > 0) {
@@ -118,7 +121,10 @@ export function ChatbotWidget() {
     setError(null);
 
     try {
-      const response: any = await sendChatMessageAPI(input, USER_ID);
+      const response: any = await sendChatMessageAPI(
+        input,
+        currentUser?.id || "1"
+      );
 
       if (response.data.success) {
         const assistantMessage: ChatMessage = {
@@ -208,8 +214,8 @@ export function ChatbotWidget() {
                         : "bg-gray-100 text-gray-900"
                     }`}
                   >
-                    <p className="text-sm whitespace-pre-wrap break-words">
-                      {message.content}
+                    <p className="text-sm whitespace-pre-line break-words overflow-x-auto">
+                      {renderWithBreaks(normalizeText(message.content))}
                     </p>
                     <p
                       className={`text-xs mt-1 ${
@@ -271,4 +277,57 @@ export function ChatbotWidget() {
     </>,
     document.body
   );
+}
+
+export function normalizeText(s?: string): string {
+  if (!s) return "";
+  let out = s.trim(); // loại bỏ khoảng trắng ở đầu/cuối nếu có
+
+  // ------------------------------------------------------------
+  // 1. Thử unstringify nếu backend trả về chuỗi dạng "\"abc\nxyz\""
+  // ------------------------------------------------------------
+  try {
+    if (
+      (out.startsWith('"') && out.endsWith('"')) ||
+      out.includes("\\n") ||
+      out.includes("\\u")
+    ) {
+      const parsed = JSON.parse(out);
+      if (typeof parsed === "string") out = parsed;
+    }
+  } catch {
+    // ignore parse fail
+  }
+
+  // ------------------------------------------------------------
+  // 2. Chuyển escape newline thành newline thật
+  // ------------------------------------------------------------
+  out = out
+    .replace(/\\r\\n/g, "\n")
+    .replace(/\\n/g, "\n")
+    .replace(/\\r/g, "\n");
+
+  // ------------------------------------------------------------
+  // 3. Loại bỏ **xuống dòng đầu nội dung**
+  //    Ví dụ: "\n\nXin chào" → "Xin chào"
+  // ------------------------------------------------------------
+  out = out.replace(/^\n+/, "");
+
+  // ------------------------------------------------------------
+  // 4. Trim lại cuối để tránh dư một ký tự xuống dòng
+  // ------------------------------------------------------------
+  out = out.trimEnd();
+
+  console.log("Normalized text:", JSON.stringify(out));
+  return out;
+}
+
+function renderWithBreaks(text?: string) {
+  if (!text) return null;
+  return text.split(/\r?\n/).map((line, i, arr) => (
+    <Fragment key={i}>
+      {line === "" ? <>&nbsp;</> : line}
+      {i < arr.length - 1 && <br />}
+    </Fragment>
+  ));
 }

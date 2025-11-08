@@ -1,6 +1,6 @@
 import axios from "./axios.customize";
 
-const sendChatMessageAPI = (message: string, userId: number) => {
+const sendChatMessageAPI = (message: string, userId: string) => {
   const URL_BACKEND = `/api/chatbot/chat?userId=${userId}`;
   return axios.post(URL_BACKEND, {
     message: message,
@@ -8,12 +8,10 @@ const sendChatMessageAPI = (message: string, userId: number) => {
   });
 };
 
-const loadChatHistoryAPI = (userId: number) => {
+const loadChatHistoryAPI = (userId: string) => {
   const URL_BACKEND = `/api/chatbot/history?userId=${userId}`;
   return axios.get(URL_BACKEND);
 };
 
-export {
-  sendChatMessageAPI,
-  loadChatHistoryAPI,
-};
+
+export { sendChatMessageAPI, loadChatHistoryAPI };
