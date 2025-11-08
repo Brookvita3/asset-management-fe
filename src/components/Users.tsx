@@ -170,7 +170,11 @@ export function Users() {
         typeof error?.message === "string"
           ? error.message
           : "Không thể lưu người dùng.";
-      toast.error(message);
+
+      if (message.includes("Duplicate")) {
+        toast.error("Email đã tồn tại. Vui lòng sử dụng email khác.");
+      }
+      else toast.error(message);
       throw error;
     } finally {
       setIsSubmitting(false);
