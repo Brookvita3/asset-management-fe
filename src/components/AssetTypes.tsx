@@ -1,9 +1,10 @@
-import { useState, useEffect, useCallback } from "react";
-import { Plus, Search, Edit, Trash2, ArrowUpDown } from "lucide-react";
-import { Button } from "./ui/button";
-import { Input } from "./ui/input";
-import { Badge } from "./ui/badge";
-import { Card, CardContent } from "./ui/card";
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import { Plus, Search, Edit, Trash2 } from 'lucide-react';
+import { toast } from 'sonner';
+import { Button } from './ui/button';
+import { Input } from './ui/input';
+import { Badge } from './ui/badge';
+import { Card, CardContent } from './ui/card';
 import {
   Select,
   SelectContent,
@@ -27,11 +28,7 @@ import {
   PaginationLink,
   PaginationNext,
   PaginationPrevious,
-} from "./ui/pagination";
-import { mockAssetTypes } from "../lib/mockData";
-import { AssetType } from "../types";
-import { toast } from "sonner@2.0.3";
-import { AssetTypeFormDialog } from "./AssetTypeFormDialog";
+} from './ui/pagination';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -41,269 +38,247 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
-} from "./ui/alert-dialog";
+} from './ui/alert-dialog';
 import {
   createAssetTypeAPI,
   deleteAssetTypeAPI,
   getAllAssetTypesAPI,
   updateAssetTypeAPI,
-} from "../services/assetTypeAPI";
+} from '../services/assetTypeAPI';
+import { AssetTypeDTO } from '../types/backend';
+import { AssetTypeFormDialog, AssetTypeFormValues } from './AssetTypeFormDialog';
+
+const ITEMS_PER_PAGE = 10;
 
 export function AssetTypes() {
-  const [searchTerm, setSearchTerm] = useState("");
-  const [dialogOpen, setDialogOpen] = useState(false);
-  const [selectedAssetType, setSelectedAssetType] = useState<AssetType | null>(
-    null
-  );
-  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
-  const [assetTypeToDelete, setAssetTypeToDelete] = useState<AssetType | null>(
-    null
-  );
-  const [assetTypes, setAssetTypes] = useState<AssetType[]>([]);
-  const [statusFilter, setStatusFilter] = useState<string>("all");
-  const [sortBy, setSortBy] = useState<"name" | "description">("name");
-  const [sortOrder, setSortOrder] = useState<"asc" | "desc">("asc");
+  const [assetTypes, setAssetTypes] = useState<AssetTypeDTO[]>([]);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'inactive'>('all');
+  const [sortBy, setSortBy] = useState<'name' | 'description'>('name');
+  const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('asc');
   const [currentPage, setCurrentPage] = useState(1);
-  const [checkAction, setCheckAction] = useState(false);
-  const itemsPerPage = 10;
+  const [isLoading, setIsLoading] = useState(false);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+
+  const [dialogOpen, setDialogOpen] = useState(false);
+  const [selectedAssetType, setSelectedAssetType] = useState<AssetTypeDTO | null>(null);
+
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [assetTypePendingDelete, setAssetTypePendingDelete] =
+    useState<AssetTypeDTO | null>(null);
+
+  const fetchAssetTypes = useCallback(async () => {
+    setIsLoading(true);
+    setErrorMessage(null);
+    try {
+      const response = await getAllAssetTypesAPI();
+      setAssetTypes(response.data ?? []);
+    } catch (error: any) {
+      console.error('Error fetching asset types:', error);
+      const message =
+        typeof error?.message === 'string'
+          ? error.message
+          : 'Không thể tải danh sách loại tài sản.';
+      setErrorMessage(message);
+      toast.error(message);
+    } finally {
+      setIsLoading(false);
+    }
+  }, []);
 
   useEffect(() => {
     fetchAssetTypes();
-  }, [checkAction]);
+  }, [fetchAssetTypes]);
 
-  // Fetch asset types from API
-  const fetchAssetTypes = useCallback(async () => {
-    try {
-      const response: any = await getAllAssetTypesAPI();
-      if (response.message.includes("successfully")) {
-        setAssetTypes(response.data);
-      }
-    } catch (error) {
-      console.error("Error fetching asset types:", error);
+  const filteredAssetTypes = useMemo(() => {
+    let result = [...assetTypes];
+
+    if (searchTerm.trim()) {
+      const keyword = searchTerm.trim().toLowerCase();
+      result = result.filter(
+        (item) =>
+          item.name.toLowerCase().includes(keyword) ||
+          item.description.toLowerCase().includes(keyword)
+      );
     }
-  }, []);
-  // Save asset type via API
-  const createAssetType = async (data: AssetType) => {
-    try {
-      const response: any = await createAssetTypeAPI(data);
-      if (response.message.includes("successfully")) {
-        toast.success("Đã tạo loại tài sản mới");
-        setCheckAction(!checkAction);
-      }
-    } catch (error) {
-      console.error("Error creating asset type:", error);
+
+    if (statusFilter !== 'all') {
+      const desiredStatus = statusFilter === 'active';
+      result = result.filter((item) => item.isActive === desiredStatus);
     }
-  };
-  // Update asset type via API
-  const updateAssetType = async (id: number, data: AssetType) => {
-    try {
-      const response: any = await updateAssetTypeAPI(id, data);
-      if (response.message.includes("successfully")) {
-        toast.success("Đã cập nhật loại tài sản");
-        setCheckAction(!checkAction);
-      }
-    } catch (error) {
-      console.error("Error updating asset type:", error);
-    }
-  };
 
-  // Delete asset type via API
-  const deleteAssetType = async (id: number) => {
-    try {
-      const response: any = await deleteAssetTypeAPI(id);
-      if (response.message.includes("successfully")) {
-        toast.success("Đã xóa loại tài sản");
-        setCheckAction(!checkAction);
-      }
-    } catch (error) {
-      console.error("Error deleting asset type:", error);
-    }
-  };
+    result.sort((a, b) => {
+      const aValue = (sortBy === 'name' ? a.name : a.description) ?? '';
+      const bValue = (sortBy === 'name' ? b.name : b.description) ?? '';
+      const comparison = aValue.localeCompare(bValue);
+      return sortOrder === 'asc' ? comparison : -comparison;
+    });
 
-  // Apply filters
-  let filteredAssetTypes = assetTypes;
+    return result;
+  }, [assetTypes, searchTerm, statusFilter, sortBy, sortOrder]);
 
-  if (searchTerm) {
-    filteredAssetTypes = filteredAssetTypes.filter(
-      (type) =>
-        type.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        type.description.toLowerCase().includes(searchTerm.toLowerCase())
-    );
-  }
+  const totalPages = Math.max(1, Math.ceil(filteredAssetTypes.length / ITEMS_PER_PAGE));
 
-  if (statusFilter !== "all") {
-    const isActive = statusFilter === "active";
-    filteredAssetTypes = filteredAssetTypes.filter(
-      (type) => type.isActive === isActive
-    );
-  }
-
-  // Apply sorting
-  filteredAssetTypes = [...filteredAssetTypes].sort((a, b) => {
-    const aValue = a[sortBy].toLowerCase();
-    const bValue = b[sortBy].toLowerCase();
-
-    if (sortOrder === "asc") {
-      return aValue.localeCompare(bValue);
-    } else {
-      return bValue.localeCompare(aValue);
-    }
-  });
-
-  // Pagination
-  const totalPages = Math.ceil(filteredAssetTypes.length / itemsPerPage);
-  const startIndex = (currentPage - 1) * itemsPerPage;
-  const endIndex = startIndex + itemsPerPage;
-  const paginatedAssetTypes = filteredAssetTypes.slice(startIndex, endIndex);
-
-  // Reset to page 1 when filters change
   useEffect(() => {
     setCurrentPage(1);
   }, [searchTerm, statusFilter, sortBy, sortOrder]);
 
-  const handleEdit = (assetType: AssetType) => {
-    setSelectedAssetType(assetType);
-    setDialogOpen(true);
-  };
+  useEffect(() => {
+    if (currentPage > totalPages) {
+      setCurrentPage(totalPages);
+    }
+  }, [currentPage, totalPages]);
 
-  const handleAdd = () => {
+  const paginatedAssetTypes = useMemo(() => {
+    const start = (currentPage - 1) * ITEMS_PER_PAGE;
+    return filteredAssetTypes.slice(start, start + ITEMS_PER_PAGE);
+  }, [filteredAssetTypes, currentPage]);
+
+  const handleCreate = () => {
     setSelectedAssetType(null);
     setDialogOpen(true);
   };
 
-  const handleDelete = (assetType: AssetType) => {
-    setAssetTypeToDelete(assetType);
+  const handleEdit = (assetType: AssetTypeDTO) => {
+    setSelectedAssetType(assetType);
+    setDialogOpen(true);
+  };
+
+  const handleDelete = (assetType: AssetTypeDTO) => {
+    setAssetTypePendingDelete(assetType);
     setDeleteDialogOpen(true);
   };
 
-  const confirmDelete = () => {
-    if (assetTypeToDelete) {
-      deleteAssetType(assetTypeToDelete.id);
-      setDeleteDialogOpen(false);
-      setAssetTypeToDelete(null);
+  const handleSave = async (values: AssetTypeFormValues) => {
+    try {
+      if (selectedAssetType) {
+        await updateAssetTypeAPI(selectedAssetType.id, values);
+        toast.success('Da cap nhat loai tai san.');
+      } else {
+        await createAssetTypeAPI(values);
+        toast.success('Da tao loai tai san moi.');
+      }
+      setDialogOpen(false);
+      setSelectedAssetType(null);
+      fetchAssetTypes();
+    } catch (error: any) {
+      console.error('Lỗi lưu loại tài sản:', error);
+      const message =
+        typeof error?.message === 'string'
+          ? error.message
+          : 'Không thể lưu thông tin loại tài sản.';
+      toast.error(message);
     }
   };
 
-  const handleSave = (assetTypeData: Partial<AssetType>) => {
-    if (assetTypeData.id) {
-      // Update existing
-      const updatedList = assetTypes.map((type) =>
-        type.id === assetTypeData.id ? { ...type, ...assetTypeData } : type
-      );
-      // update on server
-      updateAssetType(assetTypeData.id, assetTypeData as AssetType);
-      // setAssetTypes(updatedList);
-      toast.success("Đã cập nhật loại tài sản");
-    } else {
-      // Add new
-      const newAssetType: AssetType = {
-        id: 0,
-        name: assetTypeData.name!,
-        description: assetTypeData.description!,
-        isActive: assetTypeData.isActive ?? true,
-      };
-      // // optimistically update UI and persist on server
-      // setAssetTypes([...assetTypes, newAssetType]);
-      createAssetType(newAssetType);
-      toast.success("Đã thêm loại tài sản mới");
+  const confirmDelete = async () => {
+    if (!assetTypePendingDelete) return;
+
+    try {
+      await deleteAssetTypeAPI(assetTypePendingDelete.id);
+      toast.success('Da xoa loai tai san.');
+      setDeleteDialogOpen(false);
+      setAssetTypePendingDelete(null);
+      fetchAssetTypes();
+  } catch (error: any) {
+    console.error('Lỗi xóa loại tài sản:', error);
+    const message =
+      typeof error?.message === 'string'
+        ? error.message
+        : 'Không thể xóa loại tài sản.';
+      toast.error(message);
     }
-    console.log("Saved asset type data:", assetTypeData);
   };
 
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-gray-900 dark:text-gray-50">
-            Quản lý Loại tài sản
-          </h1>
+          <h1 className="text-gray-900 dark:text-gray-50">Quan ly Loai tai san</h1>
           <p className="text-gray-600 dark:text-gray-400">
-            Danh sách và quản lý các loại tài sản
+            Theo doi, tao moi, chinh sua va vo hieu hoa cac loai tai san trong he thong.
           </p>
         </div>
-        <Button className="bg-blue-600" onClick={handleAdd}>
+        <Button className="bg-blue-600" onClick={handleCreate}>
           <Plus className="w-4 h-4 mr-2" />
-          Thêm loại tài sản
+          Them loai tai san
         </Button>
       </div>
 
-      {/* Filters and Search */}
       <Card>
         <CardContent className="pt-6">
           <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
             <div className="relative md:col-span-2">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
               <Input
-                placeholder="Tìm kiếm theo tên, mô tả..."
+                placeholder="Tim kiem theo ten hoac mo ta..."
                 value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
+                onChange={(event) => setSearchTerm(event.target.value)}
                 className="pl-10"
               />
             </div>
 
-            <Select value={statusFilter} onValueChange={setStatusFilter}>
+            <Select value={statusFilter} onValueChange={(value) => setStatusFilter(value as typeof statusFilter)}>
               <SelectTrigger>
-                <SelectValue placeholder="Trạng thái" />
+                <SelectValue placeholder="Status" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="all">Tất cả trạng thái</SelectItem>
-                <SelectItem value="active">Hoạt động</SelectItem>
-                <SelectItem value="inactive">Vô hiệu hóa</SelectItem>
+                <SelectItem value="all">Tat ca trang thai</SelectItem>
+                <SelectItem value="active">Hoat dong</SelectItem>
+                <SelectItem value="inactive">Ngung hoat dong</SelectItem>
               </SelectContent>
             </Select>
 
             <Select
               value={`${sortBy}-${sortOrder}`}
               onValueChange={(value) => {
-                const [field, order] = value.split("-");
-                setSortBy(field as "name" | "description");
-                setSortOrder(order as "asc" | "desc");
+                const [field, order] = value.split('-') as [typeof sortBy, typeof sortOrder];
+                setSortBy(field);
+                setSortOrder(order);
               }}
             >
               <SelectTrigger>
-                <SelectValue placeholder="Sắp xếp" />
+                <SelectValue placeholder="Sap xep" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="name-asc">Tên A-Z</SelectItem>
-                <SelectItem value="name-desc">Tên Z-A</SelectItem>
-                <SelectItem value="description-asc">Mô tả A-Z</SelectItem>
-                <SelectItem value="description-desc">Mô tả Z-A</SelectItem>
+                <SelectItem value="name-asc">Ten A-Z</SelectItem>
+                <SelectItem value="name-desc">Ten Z-A</SelectItem>
+                <SelectItem value="description-asc">Mo ta A-Z</SelectItem>
+                <SelectItem value="description-desc">Mo ta Z-A</SelectItem>
               </SelectContent>
             </Select>
           </div>
         </CardContent>
       </Card>
 
-      {/* Asset Types Table */}
       <Card className="shadow-sm border-gray-200 dark:border-gray-700">
         <CardContent className="p-0">
+          {errorMessage && (
+            <div className="px-6 py-3 text-sm text-red-600 bg-red-50 border-b border-red-200 dark:bg-red-900/20 dark:text-red-200 dark:border-red-900">
+              {errorMessage}
+            </div>
+          )}
           <div className="overflow-hidden">
             <Table>
               <TableHeader>
                 <TableRow className="bg-gray-50 dark:bg-gray-800/50 hover:bg-gray-50 dark:hover:bg-gray-800/50">
-                  <TableHead className="font-semibold">
-                    Tên loại tài sản
-                  </TableHead>
-                  <TableHead className="font-semibold">Mô tả</TableHead>
-                  <TableHead className="font-semibold">Trạng thái</TableHead>
-                  <TableHead className="text-right font-semibold">
-                    Thao tác
-                  </TableHead>
+                  <TableHead className="font-semibold">Ten loai tai san</TableHead>
+                  <TableHead className="font-semibold">Mo ta</TableHead>
+                  <TableHead className="font-semibold">Trang thai</TableHead>
+                  <TableHead className="text-right font-semibold">Thao tac</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {paginatedAssetTypes.length === 0 ? (
+                {isLoading ? (
                   <TableRow>
-                    <TableCell
-                      colSpan={4}
-                      className="text-center py-12 text-gray-500 dark:text-gray-400"
-                    >
-                      <div className="flex flex-col items-center gap-2">
-                        <div className="w-12 h-12 bg-gray-100 dark:bg-gray-800 rounded-full flex items-center justify-center">
-                          <Search className="w-6 h-6 text-gray-400" />
-                        </div>
-                        <p>Không tìm thấy loại tài sản nào</p>
-                      </div>
+                    <TableCell colSpan={4} className="py-10 text-center text-gray-500 dark:text-gray-400">
+                      Dang tai du lieu...
+                    </TableCell>
+                  </TableRow>
+                ) : paginatedAssetTypes.length === 0 ? (
+                  <TableRow>
+                    <TableCell colSpan={4} className="py-10 text-center text-gray-500 dark:text-gray-400">
+                      Khong tim thay loai tai san phu hop.
                     </TableCell>
                   </TableRow>
                 ) : (
@@ -312,7 +287,7 @@ export function AssetTypes() {
                       key={assetType.id}
                       className="hover:bg-gray-50 dark:hover:bg-gray-800/30 transition-colors"
                     >
-                      <TableCell className="text-gray-900 dark:text-gray-50">
+                      <TableCell className="text-gray-900 dark:text-gray-100">
                         {assetType.name}
                       </TableCell>
                       <TableCell className="text-gray-600 dark:text-gray-400">
@@ -326,7 +301,7 @@ export function AssetTypes() {
                               : "bg-gray-100 text-gray-800 border-gray-200 dark:bg-gray-800 dark:text-gray-300 dark:border-gray-700"
                           }
                         >
-                          {assetType.isActive ? "Hoạt động" : "Vô hiệu hóa"}
+                        {assetType.isActive ? 'Hoat dong' : 'Ngung hoat dong'}
                         </Badge>
                       </TableCell>
                       <TableCell className="text-right">
@@ -334,18 +309,20 @@ export function AssetTypes() {
                           <Button
                             variant="ghost"
                             size="icon"
+                            className="h-8 w-8 text-blue-600 hover:text-blue-700"
                             onClick={() => handleEdit(assetType)}
-                            className="hover:bg-blue-50 hover:text-blue-600 dark:hover:bg-blue-900/30 dark:hover:text-blue-400 transition-colors"
+                            aria-label={`Chinh sua ${assetType.name}`}
                           >
-                            <Edit className="w-4 h-4" />
+                            <Edit className="h-4 w-4" />
                           </Button>
                           <Button
                             variant="ghost"
                             size="icon"
+                            className="h-8 w-8 text-red-600 hover:text-red-700"
                             onClick={() => handleDelete(assetType)}
-                            className="hover:bg-red-50 hover:text-red-600 dark:hover:bg-red-900/30 dark:hover:text-red-400 transition-colors"
+                            aria-label={`Xoa ${assetType.name}`}
                           >
-                            <Trash2 className="w-4 h-4" />
+                            <Trash2 className="h-4 w-4" />
                           </Button>
                         </div>
                       </TableCell>
@@ -355,92 +332,84 @@ export function AssetTypes() {
               </TableBody>
             </Table>
           </div>
-        </CardContent>
-      </Card>
 
-      {/* Pagination */}
-      {totalPages > 1 && (
-        <Card className="shadow-sm border-gray-200 dark:border-gray-700">
-          <CardContent className="py-4">
-            <div className="flex items-center justify-between">
-              <p className="text-sm text-gray-600 dark:text-gray-400">
-                Hiển thị{" "}
-                <span className="font-semibold text-gray-900 dark:text-gray-100">
-                  {startIndex + 1}-
-                  {Math.min(endIndex, filteredAssetTypes.length)}
-                </span>{" "}
-                trong tổng số{" "}
-                <span className="font-semibold text-gray-900 dark:text-gray-100">
-                  {filteredAssetTypes.length}
-                </span>{" "}
-                loại tài sản
-              </p>
+          {filteredAssetTypes.length > ITEMS_PER_PAGE && (
+            <div className="border-t border-gray-100 dark:border-gray-800 px-6 py-3">
               <Pagination>
-                <PaginationContent>
+                <PaginationContent className="justify-end">
                   <PaginationItem>
                     <PaginationPrevious
-                      onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
-                      className={
-                        currentPage === 1
-                          ? "pointer-events-none opacity-50"
-                          : "cursor-pointer hover:bg-blue-50 dark:hover:bg-blue-900/30"
-                      }
+                      href="#"
+                      aria-label="Previous page"
+                      onClick={(event) => {
+                        event.preventDefault();
+                        setCurrentPage((page) => Math.max(1, page - 1));
+                      }}
+                      className={currentPage === 1 ? 'pointer-events-none opacity-50' : ''}
                     />
                   </PaginationItem>
 
-                  {[...Array(totalPages)].map((_, i) => {
-                    const page = i + 1;
-                    if (
-                      page === 1 ||
-                      page === totalPages ||
-                      (page >= currentPage - 1 && page <= currentPage + 1)
-                    ) {
-                      return (
-                        <PaginationItem key={page}>
-                          <PaginationLink
-                            onClick={() => setCurrentPage(page)}
-                            isActive={currentPage === page}
-                            className={`cursor-pointer ${
-                              currentPage === page
-                                ? "bg-blue-600 text-white hover:bg-blue-700"
-                                : "hover:bg-blue-50 dark:hover:bg-blue-900/30"
-                            }`}
-                          >
-                            {page}
-                          </PaginationLink>
-                        </PaginationItem>
-                      );
-                    } else if (
-                      page === currentPage - 2 ||
-                      page === currentPage + 2
-                    ) {
-                      return <PaginationEllipsis key={page} />;
+                  {Array.from({ length: totalPages }).map((_, index) => {
+                    const pageNumber = index + 1;
+                    const isEllipsis =
+                      totalPages > 7 &&
+                      pageNumber !== 1 &&
+                      pageNumber !== totalPages &&
+                      Math.abs(pageNumber - currentPage) > 2;
+
+                    if (isEllipsis) {
+                      if (pageNumber === 2 || pageNumber === totalPages - 1) {
+                        return (
+                          <PaginationItem key={`ellipsis-${pageNumber}`}>
+                            <PaginationEllipsis />
+                          </PaginationItem>
+                        );
+                      }
+                      return null;
                     }
-                    return null;
+
+                    return (
+                      <PaginationItem key={pageNumber}>
+                        <PaginationLink
+                          href="#"
+                          isActive={pageNumber === currentPage}
+                          onClick={(event) => {
+                            event.preventDefault();
+                            setCurrentPage(pageNumber);
+                          }}
+                        >
+                          {pageNumber}
+                        </PaginationLink>
+                      </PaginationItem>
+                    );
                   })}
 
                   <PaginationItem>
                     <PaginationNext
-                      onClick={() =>
-                        setCurrentPage((p) => Math.min(totalPages, p + 1))
-                      }
-                      className={
-                        currentPage === totalPages
-                          ? "pointer-events-none opacity-50"
-                          : "cursor-pointer hover:bg-blue-50 dark:hover:bg-blue-900/30"
-                      }
+                      href="#"
+                      aria-label="Next page"
+                      onClick={(event) => {
+                        event.preventDefault();
+                        setCurrentPage((page) => Math.min(totalPages, page + 1));
+                      }}
+                      className={currentPage === totalPages ? 'pointer-events-none opacity-50' : ''}
                     />
                   </PaginationItem>
                 </PaginationContent>
               </Pagination>
             </div>
-          </CardContent>
-        </Card>
-      )}
+          )}
+        </CardContent>
+      </Card>
 
       <AssetTypeFormDialog
         open={dialogOpen}
-        onOpenChange={setDialogOpen}
+        onOpenChange={(open) => {
+          setDialogOpen(open);
+          if (!open) {
+            setSelectedAssetType(null);
+          }
+        }}
         assetType={selectedAssetType}
         onSave={handleSave}
       />
@@ -448,16 +417,15 @@ export function AssetTypes() {
       <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Xác nhận xóa</AlertDialogTitle>
+            <AlertDialogTitle>Xóa loại tài sản</AlertDialogTitle>
             <AlertDialogDescription>
-              Bạn có chắc chắn muốn xóa loại tài sản{" "}
-              <strong>"{assetTypeToDelete?.name}"</strong>? Hành động này không
-              thể hoàn tác.
+              Bạn có chắc chắn muốn xóa loại tài sản này? Các tài sản đang sử dụng loại này sẽ vẫn giữ nguyên,
+              nhưng không thể gán loại đã xóa cho dữ liệu mới.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Hủy</AlertDialogCancel>
-            <AlertDialogAction onClick={confirmDelete} className="bg-red-600">
+            <AlertDialogAction className="bg-red-600 hover:bg-red-700" onClick={confirmDelete}>
               Xóa
             </AlertDialogAction>
           </AlertDialogFooter>

@@ -1,19 +1,38 @@
-import { useState, useEffect } from 'react';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from './ui/dialog';
+import { useEffect, useState } from 'react';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from './ui/dialog';
 import { Button } from './ui/button';
 import { Input } from './ui/input';
 import { Label } from './ui/label';
 import { Textarea } from './ui/textarea';
 import { Switch } from './ui/switch';
-import { AssetType } from '../types';
-import { toast } from 'sonner@2.0.3';
+import { toast } from 'sonner';
+import { AssetTypeDTO } from '../types/backend';
+
+export interface AssetTypeFormValues {
+  name: string;
+  description: string;
+  isActive: boolean;
+}
 
 interface AssetTypeFormDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  assetType: AssetType | null;
-  onSave: (assetType: Partial<AssetType>) => void;
+  assetType: AssetTypeDTO | null;
+  onSave: (values: AssetTypeFormValues) => Promise<void> | void;
 }
+
+const emptyForm: AssetTypeFormValues = {
+  name: '',
+  description: '',
+  isActive: true,
+};
 
 export function AssetTypeFormDialog({
   open,
@@ -21,154 +40,153 @@ export function AssetTypeFormDialog({
   assetType,
   onSave,
 }: AssetTypeFormDialogProps) {
-  const [formData, setFormData] = useState({
-    name: '',
-    description: '',
-    isActive: true,
-  });
-
-  const [errors, setErrors] = useState({
-    name: '',
-    description: '',
-  });
+  const [formValues, setFormValues] = useState<AssetTypeFormValues>(emptyForm);
+  const [errors, setErrors] = useState<{ name?: string; description?: string }>({});
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   useEffect(() => {
     if (assetType) {
-      setFormData({
+      setFormValues({
         name: assetType.name,
         description: assetType.description,
         isActive: assetType.isActive,
       });
     } else {
-      setFormData({
-        name: '',
-        description: '',
-        isActive: true,
-      });
+      setFormValues(emptyForm);
     }
-    setErrors({ name: '', description: '' });
+    setErrors({});
   }, [assetType, open]);
 
-  const validateForm = () => {
-    const newErrors = {
-      name: '',
-      description: '',
-    };
+  const validate = () => {
+    const validationErrors: { name?: string; description?: string } = {};
 
-    if (!formData.name.trim()) {
-      newErrors.name = 'Vui lòng nhập tên loại tài sản';
+    if (!formValues.name.trim()) {
+      validationErrors.name = 'Please enter a name.';
     }
 
-    if (!formData.description.trim()) {
-      newErrors.description = 'Vui lòng nhập mô tả';
+    if (!formValues.description.trim()) {
+      validationErrors.description = 'Please provide a short description.';
     }
 
-    setErrors(newErrors);
-    return !newErrors.name && !newErrors.description;
+    setErrors(validationErrors);
+    return Object.keys(validationErrors).length === 0;
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleSubmit = async (event: React.FormEvent) => {
+    event.preventDefault();
 
-    if (!validateForm()) {
-      toast.error('Vui lòng kiểm tra lại thông tin');
+    if (!validate()) {
+      toast.error('Check the highlighted fields and try again.');
       return;
     }
 
-    onSave({
-      id: assetType?.id,
-      name: formData.name.trim(),
-      description: formData.description.trim(),
-      isActive: formData.isActive,
-    });
-
-    onOpenChange(false);
-  };
-
-  const handleKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key === 'Enter' && e.target instanceof HTMLInputElement) {
-      e.preventDefault();
+    try {
+      setIsSubmitting(true);
+      await onSave({
+        name: formValues.name.trim(),
+        description: formValues.description.trim(),
+        isActive: formValues.isActive,
+      });
+      onOpenChange(false);
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[500px]">
+    <Dialog open={open} onOpenChange={(value) => !isSubmitting && onOpenChange(value)}>
+      <DialogContent className="sm:max-w-[480px]">
         <DialogHeader>
           <DialogTitle>
-            {assetType ? 'Chỉnh sửa loại tài sản' : 'Thêm loại tài sản mới'}
+            {assetType ? 'Edit asset type' : 'Create asset type'}
           </DialogTitle>
           <DialogDescription>
-            {assetType 
-              ? 'Cập nhật thông tin loại tài sản' 
-              : 'Điền thông tin để tạo loại tài sản mới'}
+            {assetType
+              ? 'Update the details for this asset classification.'
+              : 'Provide the details for the new asset classification.'}
           </DialogDescription>
         </DialogHeader>
 
-        <form onSubmit={handleSubmit} onKeyDown={handleKeyDown}>
-          <div className="space-y-4 py-4">
-            {/* Name */}
+        <form onSubmit={handleSubmit} className="space-y-6">
+          <div className="space-y-4">
             <div className="space-y-2">
-              <Label htmlFor="name">
-                Tên loại tài sản <span className="text-red-500">*</span>
+              <Label htmlFor="asset-type-name">
+                Name <span className="text-red-500">*</span>
               </Label>
               <Input
-                id="name"
-                value={formData.name}
-                onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                placeholder="Ví dụ: Laptop, Màn hình, Bàn làm việc..."
-                className={errors.name ? 'border-red-500' : ''}
+                id="asset-type-name"
+                value={formValues.name}
+                onChange={(event) =>
+                  setFormValues((previous) => ({
+                    ...previous,
+                    name: event.target.value,
+                  }))
+                }
+                placeholder="e.g. Laptop, Monitor, Desk..."
+                className={errors.name ? 'border-red-500 focus-visible:ring-red-500' : ''}
+                autoFocus
               />
               {errors.name && (
                 <p className="text-sm text-red-500">{errors.name}</p>
               )}
             </div>
 
-            {/* Description */}
             <div className="space-y-2">
-              <Label htmlFor="description">
-                Mô tả <span className="text-red-500">*</span>
+              <Label htmlFor="asset-type-description">
+                Description <span className="text-red-500">*</span>
               </Label>
               <Textarea
-                id="description"
-                value={formData.description}
-                onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                placeholder="Nhập mô tả chi tiết về loại tài sản..."
+                id="asset-type-description"
+                value={formValues.description}
+                onChange={(event) =>
+                  setFormValues((previous) => ({
+                    ...previous,
+                    description: event.target.value,
+                  }))
+                }
+                placeholder="Describe what assets belong to this type..."
                 rows={3}
-                className={errors.description ? 'border-red-500' : ''}
+                className={errors.description ? 'border-red-500 focus-visible:ring-red-500' : ''}
               />
               {errors.description && (
                 <p className="text-sm text-red-500">{errors.description}</p>
               )}
             </div>
 
-            {/* Active Status */}
-            <div className="flex items-center justify-between py-2">
+            <div className="flex items-center justify-between rounded-md border border-dashed border-gray-200 dark:border-gray-700 p-3">
               <div>
-                <Label>Trạng thái hoạt động</Label>
-                <p className="text-sm text-gray-500">
-                  Cho phép sử dụng loại tài sản này
+                <Label htmlFor="asset-type-active" className="font-medium">
+                  Active status
+                </Label>
+                <p className="text-sm text-gray-500 dark:text-gray-400">
+                  Toggle to control whether this type can be selected for new assets.
                 </p>
               </div>
               <Switch
-                checked={formData.isActive}
+                id="asset-type-active"
+                checked={formValues.isActive}
                 onCheckedChange={(checked) =>
-                  setFormData({ ...formData, isActive: checked })
+                  setFormValues((previous) => ({
+                    ...previous,
+                    isActive: checked,
+                  }))
                 }
+                disabled={isSubmitting}
               />
             </div>
           </div>
 
-          <DialogFooter>
+          <DialogFooter className="gap-2 sm:gap-3">
             <Button
               type="button"
               variant="outline"
               onClick={() => onOpenChange(false)}
+              disabled={isSubmitting}
             >
-              Hủy
+              Cancel
             </Button>
-            <Button type="submit" className="bg-blue-600">
-              {assetType ? 'Cập nhật' : 'Thêm mới'}
+            <Button type="submit" className="bg-blue-600" disabled={isSubmitting}>
+              {assetType ? 'Save changes' : 'Create type'}
             </Button>
           </DialogFooter>
         </form>

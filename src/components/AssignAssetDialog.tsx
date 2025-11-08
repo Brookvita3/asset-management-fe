@@ -1,114 +1,125 @@
-import { useState, useEffect } from 'react';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from './ui/dialog';
-import { Button } from './ui/button';
-import { Label } from './ui/label';
-import { Input } from './ui/input';
+import { useEffect, useMemo, useState } from "react";
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from './ui/select';
-import { Asset, UserRole } from '../types';
-import { mockUsers, mockDepartments } from '../lib/mockData';
-import { toast } from 'sonner@2.0.3';
-import { useAuth } from '../contexts/AuthContext';
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "./ui/dialog";
+import { Button } from "./ui/button";
+import { Label } from "./ui/label";
+import { Input } from "./ui/input";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "./ui/select";
+// Legacy mock data reference preserved during API migration.
+// import { mockUsers, mockDepartments } from "../lib/mockData";
+import { Asset, Department, User, UserRole } from "../types";
+import { useAuth } from "../contexts/AuthContext";
+import { toast } from "sonner";
 
 interface AssignAssetDialogProps {
   asset: Asset;
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  departments: Department[];
+  users: User[];
+  onAssign: (payload: { userId: string; assignDate: string }) => Promise<void>;
+  isSubmitting?: boolean;
 }
 
-export function AssignAssetDialog({ asset, open, onOpenChange }: AssignAssetDialogProps) {
+export function AssignAssetDialog({
+  asset,
+  open,
+  onOpenChange,
+  departments,
+  users,
+  onAssign,
+  isSubmitting = false,
+}: AssignAssetDialogProps) {
   const { currentUser } = useAuth();
-  const [selectedDepartmentId, setSelectedDepartmentId] = useState('');
-  const [selectedUserId, setSelectedUserId] = useState('');
-  const [assignDate, setAssignDate] = useState('');
+  const [selectedDepartmentId, setSelectedDepartmentId] = useState("");
+  const [selectedUserId, setSelectedUserId] = useState("");
+  const [assignDate, setAssignDate] = useState("");
 
-  // Set default date to today when dialog opens
   useEffect(() => {
-    if (open) {
-      const today = new Date().toISOString().split('T')[0];
-      setAssignDate(today);
-      // Reset selections
-      setSelectedDepartmentId('');
-      setSelectedUserId('');
-    }
+    if (!open) return;
+    const today = new Date().toISOString().split("T")[0];
+    setAssignDate(today);
+    setSelectedDepartmentId("");
+    setSelectedUserId("");
   }, [open]);
 
-  // Get available departments based on role
-  const availableDepartments = !currentUser ? [] :
-    currentUser.role === UserRole.ADMIN
-    ? mockDepartments.filter(d => d.isActive)
-    : mockDepartments.filter(d => d.id === currentUser.departmentId && d.isActive);
+  const availableDepartments = useMemo(() => {
+    if (!currentUser) return [];
+    const activeDepartments = departments.filter((dept) => dept.isActive);
+    if (currentUser.role === UserRole.ADMIN) {
+      return activeDepartments;
+    }
+    return activeDepartments.filter((dept) => dept.id === currentUser.departmentId);
+  }, [currentUser, departments]);
 
-  // Get users in selected department
-  const availableUsers = selectedDepartmentId
-    ? mockUsers.filter(
-        u => u.departmentId === selectedDepartmentId && 
-        u.isActive &&
-        u.role === UserRole.STAFF
-      )
-    : [];
+  const availableUsers = useMemo(() => {
+    if (!selectedDepartmentId) return [];
+    return users.filter(
+      (user) =>
+        user.departmentId === selectedDepartmentId &&
+        user.isActive &&
+        user.role === UserRole.STAFF
+    );
+  }, [users, selectedDepartmentId]);
 
-  // Reset user selection when department changes
-  const handleDepartmentChange = (deptId: string) => {
-    setSelectedDepartmentId(deptId);
-    setSelectedUserId('');
-  };
-
-  const handleAssign = () => {
+  const handleAssign = async () => {
     if (!selectedDepartmentId) {
-      toast.error('Vui lòng chọn phòng ban');
+      toast.error("Vui lòng chọn phòng ban.");
       return;
     }
-
     if (!selectedUserId) {
-      toast.error('Vui lòng chọn nhân viên');
+      toast.error("Vui lòng chọn nhân viên.");
       return;
     }
-
     if (!assignDate) {
-      toast.error('Vui lòng chọn ngày gán');
+      toast.error("Vui lòng chọn ngày gán.");
       return;
     }
 
-    const user = mockUsers.find(u => u.id === selectedUserId);
-    
-    // Here you would normally save to backend
-    // Update: current_user_id, status = IN_USE, add history "ASSIGNED"
-    toast.success(`Đã gán tài sản ${asset.code} cho ${user?.name} vào ngày ${assignDate}`);
+    await onAssign({ userId: selectedUserId, assignDate });
     onOpenChange(false);
   };
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <Dialog open={open} onOpenChange={(value) => !isSubmitting && onOpenChange(value)}>
       <DialogContent>
         <DialogHeader>
           <DialogTitle>Gán tài sản</DialogTitle>
           <DialogDescription>
-            Chọn phòng ban và nhân viên để gán tài sản
+            Chọn phòng ban và nhân viên mà bạn muốn gán tài sản.
           </DialogDescription>
         </DialogHeader>
 
         <div className="space-y-4 py-4">
           <div className="space-y-2">
             <p className="text-sm text-gray-600">Tài sản</p>
-            <p className="text-gray-900">{asset.code} - {asset.name}</p>
+            <p className="text-gray-900">
+              {asset.code} - {asset.name}
+            </p>
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="department">
-              Chọn phòng ban <span className="text-red-500">*</span>
+            <Label htmlFor="assign-department">
+              Phòng ban <span className="text-red-500">*</span>
             </Label>
-            <Select value={selectedDepartmentId} onValueChange={handleDepartmentChange}>
-              <SelectTrigger>
+            <Select
+              value={selectedDepartmentId}
+              onValueChange={(value) => {
+                setSelectedDepartmentId(value);
+                setSelectedUserId("");
+              }}
+            >
+              <SelectTrigger id="assign-department">
                 <SelectValue placeholder="Chọn phòng ban" />
               </SelectTrigger>
               <SelectContent>
-                {availableDepartments.map(dept => (
+                {availableDepartments.map((dept) => (
                   <SelectItem key={dept.id} value={dept.id}>
                     {dept.name}
                   </SelectItem>
@@ -118,19 +129,19 @@ export function AssignAssetDialog({ asset, open, onOpenChange }: AssignAssetDial
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="user">
-              Chọn nhân viên <span className="text-red-500">*</span>
+            <Label htmlFor="assign-user">
+              Nhân viên <span className="text-red-500">*</span>
             </Label>
-            <Select 
-              value={selectedUserId} 
+            <Select
+              value={selectedUserId}
               onValueChange={setSelectedUserId}
               disabled={!selectedDepartmentId}
             >
-              <SelectTrigger>
+              <SelectTrigger id="assign-user">
                 <SelectValue placeholder="Chọn nhân viên" />
               </SelectTrigger>
               <SelectContent>
-                {availableUsers.map(user => (
+                {availableUsers.map((user) => (
                   <SelectItem key={user.id} value={user.id}>
                     {user.name} ({user.email})
                   </SelectItem>
@@ -139,29 +150,38 @@ export function AssignAssetDialog({ asset, open, onOpenChange }: AssignAssetDial
             </Select>
             {selectedDepartmentId && availableUsers.length === 0 && (
               <p className="text-sm text-yellow-600">
-                Không có nhân viên khả dụng trong phòng ban này
+                Không có nhân viên phù hợp trong phòng ban này.
               </p>
             )}
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="assignDate">
+            <Label htmlFor="assign-date">
               Ngày gán <span className="text-red-500">*</span>
             </Label>
             <Input
-              id="assignDate"
+              id="assign-date"
               type="date"
               value={assignDate}
-              onChange={(e) => setAssignDate(e.target.value)}
+              onChange={(event) => setAssignDate(event.target.value)}
             />
           </div>
         </div>
 
         <DialogFooter>
-          <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
+          <Button
+            type="button"
+            variant="outline"
+            onClick={() => onOpenChange(false)}
+            disabled={isSubmitting}
+          >
             Hủy
           </Button>
-          <Button onClick={handleAssign} className="bg-blue-600" disabled={!selectedUserId}>
+          <Button
+            onClick={handleAssign}
+            className="bg-blue-600"
+            disabled={!selectedUserId || isSubmitting}
+          >
             Gán tài sản
           </Button>
         </DialogFooter>

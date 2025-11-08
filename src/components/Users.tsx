@@ -1,9 +1,9 @@
-import { useState, useEffect } from 'react';
-import { Plus, Search, Edit, UserX } from 'lucide-react';
-import { Button } from './ui/button';
-import { Input } from './ui/input';
-import { Badge } from './ui/badge';
-import { Card, CardContent } from './ui/card';
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { Plus, Search, Edit, UserX } from "lucide-react";
+import { Button } from "./ui/button";
+import { Input } from "./ui/input";
+import { Badge } from "./ui/badge";
+import { Card, CardContent } from "./ui/card";
 import {
   Table,
   TableBody,
@@ -11,7 +11,7 @@ import {
   TableHead,
   TableHeader,
   TableRow,
-} from './ui/table';
+} from "./ui/table";
 import {
   Pagination,
   PaginationContent,
@@ -20,14 +20,14 @@ import {
   PaginationLink,
   PaginationNext,
   PaginationPrevious,
-} from './ui/pagination';
-import { Avatar, AvatarFallback } from './ui/avatar';
-import { mockUsers, mockDepartments } from '../lib/mockData';
-import { getRoleLabel } from '../lib/utils';
-import { UserFormDialog } from './UserFormDialog';
-import { User, UserRole } from '../types';
-import { toast } from 'sonner@2.0.3';
-import { useAuth } from '../contexts/AuthContext';
+} from "./ui/pagination";
+import { Avatar, AvatarFallback } from "./ui/avatar";
+import { UserFormDialog, UserFormValues } from "./UserFormDialog";
+// Legacy mock references preserved while migrating to live APIs.
+// import { mockUsers, mockDepartments } from "../lib/mockData";
+import { User, UserRole, Department } from "../types";
+import { toast } from "sonner";
+import { useAuth } from "../contexts/AuthContext";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -37,74 +37,180 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
-} from './ui/alert-dialog';
+} from "./ui/alert-dialog";
+import { getDepartmentsAPI } from "../services/departmentAPI";
+import {
+  createUserAPI,
+  getUsersAPI,
+  updateUserAPI,
+} from "../services/userAPI";
+import { toDepartment, toUser } from "../lib/mappers";
+import { getRoleLabel } from "../lib/utils";
+
+const ITEMS_PER_PAGE = 10;
 
 export function Users() {
   const { currentUser } = useAuth();
-  const [searchTerm, setSearchTerm] = useState('');
+  const [users, setUsers] = useState<User[]>([]);
+  const [departments, setDepartments] = useState<Department[]>([]);
+  const [searchTerm, setSearchTerm] = useState("");
   const [dialogOpen, setDialogOpen] = useState(false);
   const [selectedUser, setSelectedUser] = useState<User | null>(null);
   const [deactivateDialogOpen, setDeactivateDialogOpen] = useState(false);
   const [userToDeactivate, setUserToDeactivate] = useState<User | null>(null);
   const [currentPage, setCurrentPage] = useState(1);
-  const itemsPerPage = 10;
+  const [isLoading, setIsLoading] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
-  let filteredUsers = mockUsers;
+  const fetchUsers = useCallback(async () => {
+    setIsLoading(true);
+    setErrorMessage(null);
+    try {
+      const [userResponse, departmentResponse] = await Promise.all([
+        getUsersAPI(),
+        getDepartmentsAPI(),
+      ]);
+      setUsers((userResponse.data ?? []).map(toUser));
+      setDepartments((departmentResponse.data ?? []).map(toDepartment));
+    } catch (error: any) {
+      const message =
+        typeof error?.message === "string"
+          ? error.message
+          : "Không thể tải danh sách người dùng.";
+      setErrorMessage(message);
+      toast.error(message);
+    } finally {
+      setIsLoading(false);
+    }
+  }, []);
 
-  if (searchTerm) {
-    filteredUsers = filteredUsers.filter(
-      user =>
-        user.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        user.email.toLowerCase().includes(searchTerm.toLowerCase())
-    );
-  }
+  useEffect(() => {
+    fetchUsers();
+  }, [fetchUsers]);
 
-  // Pagination
-  const totalPages = Math.ceil(filteredUsers.length / itemsPerPage);
-  const startIndex = (currentPage - 1) * itemsPerPage;
-  const endIndex = startIndex + itemsPerPage;
+  const filteredUsers = useMemo(() => {
+    let result = [...users];
+    if (searchTerm.trim()) {
+      const keyword = searchTerm.trim().toLowerCase();
+      result = result.filter(
+        (user) =>
+          user.name.toLowerCase().includes(keyword) ||
+          user.email.toLowerCase().includes(keyword)
+      );
+    }
+    return result;
+  }, [users, searchTerm]);
+
+  const totalPages = Math.max(1, Math.ceil(filteredUsers.length / ITEMS_PER_PAGE));
+  const startIndex = (currentPage - 1) * ITEMS_PER_PAGE;
+  const endIndex = startIndex + ITEMS_PER_PAGE;
   const paginatedUsers = filteredUsers.slice(startIndex, endIndex);
 
-  // Reset to page 1 when search changes
   useEffect(() => {
     setCurrentPage(1);
   }, [searchTerm]);
 
-  const handleEdit = (user: User) => {
-    setSelectedUser(user);
-    setDialogOpen(true);
-  };
+  useEffect(() => {
+    if (currentPage > totalPages) {
+      setCurrentPage(totalPages);
+    }
+  }, [currentPage, totalPages]);
 
   const handleAdd = () => {
     setSelectedUser(null);
     setDialogOpen(true);
   };
 
+  const handleEdit = (user: User) => {
+    setSelectedUser(user);
+    setDialogOpen(true);
+  };
+
   const handleDeactivate = (user: User) => {
-    // Prevent admin from deactivating themselves
     if (currentUser && user.id === currentUser.id) {
-      toast.error('Bạn không thể vô hiệu hóa chính mình');
+      toast.error("Bạn không thể vô hiệu hóa tài khoản của chính mình.");
       return;
     }
     setUserToDeactivate(user);
     setDeactivateDialogOpen(true);
   };
 
-  const confirmDeactivate = () => {
-    if (userToDeactivate) {
-      // Here you would normally call API
-      toast.success(`Đã vô hiệu hóa người dùng ${userToDeactivate.name}`);
-      setDeactivateDialogOpen(false);
-      setUserToDeactivate(null);
+  const handleSaveUser = async (values: UserFormValues) => {
+    setIsSubmitting(true);
+    try {
+      if (selectedUser) {
+        await updateUserAPI(Number(selectedUser.id), {
+          name: values.name,
+          email: values.email,
+          role: values.role,
+          departmentId: values.departmentId
+            ? Number(values.departmentId)
+            : undefined,
+          active: values.isActive,
+        });
+        toast.success("Đã cập nhật người dùng.");
+      } else {
+        await createUserAPI({
+          name: values.name,
+          email: values.email,
+          role: values.role,
+          departmentId: values.departmentId
+            ? Number(values.departmentId)
+            : undefined,
+          password: values.password,
+          active: values.isActive,
+        });
+        toast.success("Đã tạo người dùng mới.");
+      }
+      await fetchUsers();
+    } catch (error: any) {
+      const message =
+        typeof error?.message === "string"
+          ? error.message
+          : "Không thể lưu người dùng.";
+      toast.error(message);
+      throw error;
+    } finally {
+      setIsSubmitting(false);
     }
   };
+
+  const confirmDeactivate = async () => {
+    if (!userToDeactivate) return;
+    setIsSubmitting(true);
+    try {
+      await updateUserAPI(Number(userToDeactivate.id), {
+        active: false,
+      });
+      toast.success(`Đã vô hiệu hóa ${userToDeactivate.name}.`);
+      setDeactivateDialogOpen(false);
+      setUserToDeactivate(null);
+      await fetchUsers();
+    } catch (error: any) {
+      const message =
+        typeof error?.message === "string"
+          ? error.message
+          : "Không thể vô hiệu hóa người dùng.";
+      toast.error(message);
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const resolveDepartment = (departmentId?: string) =>
+    departmentId
+      ? departments.find((department) => department.id === departmentId)
+      : undefined;
 
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-gray-900 dark:text-gray-50">Quản lý Người dùng</h1>
-          <p className="text-gray-600 dark:text-gray-400">Danh sách và quản lý người dùng hệ thống</p>
+          <p className="text-gray-600 dark:text-gray-400">
+            Danh sách tài khoản và vai trò trong hệ thống.
+          </p>
         </div>
         <Button className="bg-blue-600" onClick={handleAdd}>
           <Plus className="w-4 h-4 mr-2" />
@@ -112,7 +218,6 @@ export function Users() {
         </Button>
       </div>
 
-      {/* Search */}
       <Card>
         <CardContent className="pt-6">
           <div className="relative max-w-md">
@@ -120,20 +225,24 @@ export function Users() {
             <Input
               placeholder="Tìm kiếm theo tên, email..."
               value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
+              onChange={(event) => setSearchTerm(event.target.value)}
               className="pl-10"
             />
           </div>
         </CardContent>
       </Card>
 
-      {/* Users Table */}
       <Card className="shadow-sm border-gray-200 dark:border-gray-700">
         <CardContent className="p-0">
+          {errorMessage && (
+            <div className="px-6 py-3 text-sm text-red-600 bg-red-50 border-b border-red-200 dark:bg-red-900/20 dark:text-red-200 dark:border-red-900">
+              {errorMessage}
+            </div>
+          )}
           <div className="overflow-hidden">
             <Table>
               <TableHeader>
-                <TableRow className="bg-gray-50 dark:bg-gray-800/50 hover:bg-gray-50 dark:hover:bg-gray-800/50">
+                <TableRow className="bg-gray-50 dark:bg-gray-800/50">
                   <TableHead className="font-semibold">Người dùng</TableHead>
                   <TableHead className="font-semibold">Email</TableHead>
                   <TableHead className="font-semibold">Phòng ban</TableHead>
@@ -143,65 +252,88 @@ export function Users() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {paginatedUsers.length === 0 ? (
+                {isLoading ? (
                   <TableRow>
-                    <TableCell colSpan={6} className="text-center py-12 text-gray-500 dark:text-gray-400">
-                      <div className="flex flex-col items-center gap-2">
-                        <div className="w-12 h-12 bg-gray-100 dark:bg-gray-800 rounded-full flex items-center justify-center">
-                          <Search className="w-6 h-6 text-gray-400" />
-                        </div>
-                        <p>Không tìm thấy người dùng nào</p>
-                      </div>
+                    <TableCell colSpan={6} className="py-12 text-center text-gray-500">
+                      Đang tải dữ liệu...
+                    </TableCell>
+                  </TableRow>
+                ) : paginatedUsers.length === 0 ? (
+                  <TableRow>
+                    <TableCell colSpan={6} className="py-12 text-center text-gray-500">
+                      Không tìm thấy người dùng nào phù hợp.
                     </TableCell>
                   </TableRow>
                 ) : (
                   paginatedUsers.map((user) => {
-                    const department = mockDepartments.find(d => d.id === user.departmentId);
-
+                    const department = resolveDepartment(user.departmentId);
                     return (
-                      <TableRow key={user.id} className="hover:bg-gray-50 dark:hover:bg-gray-800/30 transition-colors">
-                        <TableCell>
-                          <div className="flex items-center gap-3">
-                            <Avatar className="shadow-sm">
-                              <AvatarFallback className="bg-gradient-to-br from-blue-500 to-blue-600 text-white">
-                                {user.name.charAt(0)}
-                              </AvatarFallback>
-                            </Avatar>
-                            <span className="text-gray-900 dark:text-gray-50">{user.name}</span>
+                      <TableRow
+                        key={user.id}
+                        className="hover:bg-gray-50 dark:hover:bg-gray-800/40 transition-colors"
+                      >
+                        <TableCell className="flex items-center gap-3">
+                          <Avatar className="h-9 w-9">
+                            <AvatarFallback>
+                              {user.name
+                                .split(" ")
+                                .map((word) => word[0])
+                                .join("")
+                                .toUpperCase()
+                                .slice(0, 2)}
+                            </AvatarFallback>
+                          </Avatar>
+                          <div>
+                            <p className="text-gray-900 dark:text-gray-50 font-medium">
+                              {user.name}
+                            </p>
+                            <p className="text-xs text-gray-500">
+                              ID: {user.id}
+                            </p>
                           </div>
                         </TableCell>
-                        <TableCell className="text-gray-600 dark:text-gray-400">{user.email}</TableCell>
-                        <TableCell className="text-gray-600 dark:text-gray-400">{department?.name || '-'}</TableCell>
+                        <TableCell className="text-gray-600 dark:text-gray-300">
+                          {user.email}
+                        </TableCell>
+                        <TableCell className="text-gray-600 dark:text-gray-300">
+                          {department?.name ?? "—"}
+                        </TableCell>
                         <TableCell>
-                          <Badge variant="outline" className="border-blue-200 dark:border-blue-800 text-blue-700 dark:text-blue-300">
+                          <Badge className="bg-blue-100 text-blue-700 border-blue-200 dark:bg-blue-900/30 dark:text-blue-200 dark:border-blue-800">
                             {getRoleLabel(user.role)}
                           </Badge>
                         </TableCell>
                         <TableCell>
-                          <Badge className={user.isActive ? 'bg-green-100 text-green-800 border-green-200 dark:bg-green-900/30 dark:text-green-300 dark:border-green-800' : 'bg-gray-100 text-gray-800 border-gray-200 dark:bg-gray-800 dark:text-gray-300 dark:border-gray-700'}>
-                            {user.isActive ? 'Hoạt động' : 'Vô hiệu hóa'}
+                          <Badge
+                            className={
+                              user.isActive
+                                ? "bg-green-100 text-green-700 border-green-200 dark:bg-green-900/30 dark:text-green-300 dark:border-green-800"
+                                : "bg-gray-100 text-gray-700 border-gray-200 dark:bg-gray-800 dark:text-gray-300 dark:border-gray-700"
+                            }
+                          >
+                            {user.isActive ? "Hoạt động" : "Vô hiệu hóa"}
                           </Badge>
                         </TableCell>
                         <TableCell className="text-right">
-                          <div className="flex items-center justify-end gap-1">
-                            <Button 
-                              variant="ghost" 
+                          <div className="flex items-center justify-end gap-2">
+                            <Button
+                              variant="ghost"
                               size="icon"
+                              title="Chỉnh sửa"
                               onClick={() => handleEdit(user)}
-                              className="hover:bg-blue-50 hover:text-blue-600 dark:hover:bg-blue-900/30 dark:hover:text-blue-400 transition-colors"
                             >
                               <Edit className="w-4 h-4" />
                             </Button>
-                            {user.isActive && (
-                              <Button 
-                                variant="ghost" 
-                                size="icon"
-                                onClick={() => handleDeactivate(user)}
-                                className="hover:bg-red-50 hover:text-red-600 dark:hover:bg-red-900/30 dark:hover:text-red-400 transition-colors"
-                              >
-                                <UserX className="w-4 h-4" />
-                              </Button>
-                            )}
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              title="Vô hiệu hóa"
+                              onClick={() => handleDeactivate(user)}
+                              className="hover:bg-red-50 hover:text-red-600 dark:hover:bg-red-900/30 dark:hover:text-red-400 transition-colors"
+                              disabled={!user.isActive}
+                            >
+                              <UserX className="w-4 h-4" />
+                            </Button>
                           </div>
                         </TableCell>
                       </TableRow>
@@ -214,25 +346,37 @@ export function Users() {
         </CardContent>
       </Card>
 
-      {/* Pagination */}
-      {totalPages > 1 && (
+      {filteredUsers.length > ITEMS_PER_PAGE && (
         <Card className="shadow-sm border-gray-200 dark:border-gray-700">
           <CardContent className="py-4">
             <div className="flex items-center justify-between">
               <p className="text-sm text-gray-600 dark:text-gray-400">
-                Hiển thị <span className="font-semibold text-gray-900 dark:text-gray-100">{startIndex + 1}-{Math.min(endIndex, filteredUsers.length)}</span> trong tổng số <span className="font-semibold text-gray-900 dark:text-gray-100">{filteredUsers.length}</span> người dùng
+                Hiển thị{" "}
+                <span className="font-semibold text-gray-900 dark:text-gray-100">
+                  {startIndex + 1}-{Math.min(endIndex, filteredUsers.length)}
+                </span>{" "}
+                trên tổng số{" "}
+                <span className="font-semibold text-gray-900 dark:text-gray-100">
+                  {filteredUsers.length}
+                </span>{" "}
+                người dùng
               </p>
               <Pagination>
                 <PaginationContent>
                   <PaginationItem>
-                    <PaginationPrevious 
-                      onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
-                      className={currentPage === 1 ? 'pointer-events-none opacity-50' : 'cursor-pointer hover:bg-blue-50 dark:hover:bg-blue-900/30'}
+                    <PaginationPrevious
+                      onClick={() =>
+                        setCurrentPage((page) => Math.max(1, page - 1))
+                      }
+                      className={
+                        currentPage === 1
+                          ? "pointer-events-none opacity-50"
+                          : "cursor-pointer hover:bg-blue-50 dark:hover:bg-blue-900/30"
+                      }
                     />
                   </PaginationItem>
-                  
-                  {[...Array(totalPages)].map((_, i) => {
-                    const page = i + 1;
+                  {Array.from({ length: totalPages }).map((_, index) => {
+                    const page = index + 1;
                     if (
                       page === 1 ||
                       page === totalPages ||
@@ -243,25 +387,35 @@ export function Users() {
                           <PaginationLink
                             onClick={() => setCurrentPage(page)}
                             isActive={currentPage === page}
-                            className={`cursor-pointer ${currentPage === page ? 'bg-blue-600 text-white hover:bg-blue-700' : 'hover:bg-blue-50 dark:hover:bg-blue-900/30'}`}
+                            className={
+                              currentPage === page
+                                ? "bg-blue-600 text-white hover:bg-blue-700"
+                                : "cursor-pointer hover:bg-blue-50 dark:hover:bg-blue-900/30"
+                            }
                           >
                             {page}
                           </PaginationLink>
                         </PaginationItem>
                       );
-                    } else if (
-                      page === currentPage - 2 ||
-                      page === currentPage + 2
+                    }
+                    if (
+                      totalPages > 7 &&
+                      (page === currentPage - 2 || page === currentPage + 2)
                     ) {
-                      return <PaginationEllipsis key={page} />;
+                      return <PaginationEllipsis key={`ellipsis-${page}`} />;
                     }
                     return null;
                   })}
-
                   <PaginationItem>
-                    <PaginationNext 
-                      onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
-                      className={currentPage === totalPages ? 'pointer-events-none opacity-50' : 'cursor-pointer hover:bg-blue-50 dark:hover:bg-blue-900/30'}
+                    <PaginationNext
+                      onClick={() =>
+                        setCurrentPage((page) => Math.min(totalPages, page + 1))
+                      }
+                      className={
+                        currentPage === totalPages
+                          ? "pointer-events-none opacity-50"
+                          : "cursor-pointer hover:bg-blue-50 dark:hover:bg-blue-900/30"
+                      }
                     />
                   </PaginationItem>
                 </PaginationContent>
@@ -275,20 +429,33 @@ export function Users() {
         open={dialogOpen}
         onOpenChange={setDialogOpen}
         user={selectedUser}
+        departments={departments}
+        onSubmit={handleSaveUser}
+        isSubmitting={isSubmitting}
       />
 
-      <AlertDialog open={deactivateDialogOpen} onOpenChange={setDeactivateDialogOpen}>
+      <AlertDialog
+        open={deactivateDialogOpen}
+        onOpenChange={setDeactivateDialogOpen}
+      >
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Xác nhận vô hiệu hóa</AlertDialogTitle>
+            <AlertDialogTitle>Vô hiệu hóa người dùng</AlertDialogTitle>
             <AlertDialogDescription>
-              Bạn có chắc chắn muốn vô hiệu hóa người dùng <strong>{userToDeactivate?.name}</strong>?
-              Người dùng sẽ không thể đăng nhập vào hệ thống.
+              Bạn có chắc chắn muốn vô hiệu hóa{" "}
+              <span className="font-semibold text-gray-900">
+                {userToDeactivate?.name}
+              </span>
+              ? Người dùng sẽ không thể đăng nhập cho tới khi được kích hoạt lại.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Hủy</AlertDialogCancel>
-            <AlertDialogAction onClick={confirmDeactivate} className="bg-red-600">
+            <AlertDialogAction
+              className="bg-red-600 hover:bg-red-700"
+              onClick={confirmDeactivate}
+              disabled={isSubmitting}
+            >
               Vô hiệu hóa
             </AlertDialogAction>
           </AlertDialogFooter>
