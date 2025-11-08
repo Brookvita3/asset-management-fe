@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { useSearchParams } from "react-router-dom";
 import {
   Plus,
   Search,
@@ -61,6 +62,7 @@ import { EvaluateAssetDialog } from "./EvaluateAssetDialog";
 import {
   Asset,
   AssetCondition,
+  AssetHistory,
   AssetStatus,
   AssetType,
   Department,
@@ -80,20 +82,24 @@ import {
   createAssetAPI,
   deleteAssetAPI,
   evaluateAssetAPI,
+  getAssetHistoryAPI,
   getAssetsAPI,
   updateAssetAPI,
 } from "../services/assetAPI";
 import { getAllAssetTypesAPI } from "../services/assetTypeAPI";
 import { getDepartmentsAPI } from "../services/departmentAPI";
 import { getUsersAPI } from "../services/userAPI";
-import { toAsset, toAssetType, toDepartment, toUser } from "../lib/mappers";
+import { toAsset, toAssetHistory, toAssetType, toDepartment, toUser } from "../lib/mappers";
+import { AssetHistoryDTO } from "../types/backend";
 
 const ITEMS_PER_PAGE = 10;
 
 export function Assets() {
   const { currentUser } = useAuth();
+  const [searchParams, setSearchParams] = useSearchParams();
 
   const [assets, setAssets] = useState<Asset[]>([]);
+  const [assetHistories, setAssetHistories] = useState<AssetHistory[]>([]);
   const [assetTypes, setAssetTypes] = useState<AssetType[]>([]);
   const [departments, setDepartments] = useState<Department[]>([]);
   const [users, setUsers] = useState<User[]>([]);
@@ -126,17 +132,36 @@ export function Assets() {
         assetTypeResponse,
         departmentResponse,
         userResponse,
-      ] = await Promise.all([
+        assetHistoryResponse,
+      ]: any = await Promise.all([
         getAssetsAPI(),
         getAllAssetTypesAPI(),
         getDepartmentsAPI(),
         getUsersAPI(),
+        getAssetHistoryAPI(),
       ]);
+
+      console.log("Assets, Asset Types, Departments, Users before mapping.", {
+        assetResponse,
+        assetTypeResponse,
+        departmentResponse,
+        userResponse,
+        assetHistoryResponse,
+      });
 
       setAssets((assetResponse.data ?? []).map(toAsset));
       setAssetTypes((assetTypeResponse.data ?? []).map(toAssetType));
       setDepartments((departmentResponse.data ?? []).map(toDepartment));
       setUsers((userResponse.data ?? []).map(toUser));
+      setAssetHistories((assetHistoryResponse.data ?? []).map(toAssetHistory));
+
+
+      console.log("Assets, Asset Types, Departments, Users loaded.", {
+        assets,
+        assetTypes,
+        departments,
+        users,
+      });
     } catch (error: any) {
       const message =
         typeof error?.message === "string"
@@ -151,7 +176,7 @@ export function Assets() {
 
   const refreshAssets = useCallback(async () => {
     try {
-      const assetResponse = await getAssetsAPI();
+      const assetResponse: any = await getAssetsAPI();
       setAssets((assetResponse.data ?? []).map(toAsset));
     } catch (error: any) {
       const message =
@@ -165,6 +190,21 @@ export function Assets() {
   useEffect(() => {
     fetchAssets();
   }, [fetchAssets]);
+
+  // Auto-open asset detail dialog when assetId is in query params (from notification click)
+  useEffect(() => {
+    const assetIdParam = searchParams.get('assetId');
+    if (assetIdParam && assets.length > 0) {
+      const asset = assets.find(a => String(a.id) === assetIdParam);
+      if (asset) {
+        setSelectedAsset(asset);
+        setDetailDialogOpen(true);
+        // Remove the query param after opening
+        searchParams.delete('assetId');
+        setSearchParams(searchParams);
+      }
+    }
+  }, [searchParams, assets, setSearchParams]);
 
   const filteredAssets = useMemo(() => {
     if (!currentUser) return [];
@@ -248,18 +288,18 @@ export function Assets() {
     try {
       if (editingAsset) {
         await updateAssetAPI(Number(editingAsset.id), {
+          id: Number(editingAsset.id),
+          code: values.code,
           name: values.name,
           typeId: Number(values.typeId),
-          departmentId: values.departmentId
-            ? Number(values.departmentId)
-            : undefined,
+          assignedTo: values.assignedTo
+            ? Number(values.assignedTo)
+            : 0,
           purchaseDate: values.purchaseDate,
           value: values.value,
           description: values.description,
           status: editingAsset.status,
-          assignedTo: editingAsset.assignedTo
-            ? Number(editingAsset.assignedTo)
-            : undefined,
+          condition: editingAsset.condition,
         });
         toast.success("Đã cập nhật tài sản thành công.");
       } else {
@@ -351,8 +391,12 @@ export function Assets() {
     setIsSubmitting(true);
     try {
       await evaluateAssetAPI(Number(selectedAsset.id), {
-        condition,
-        notes,
+        performedBy: Number(currentUser?.id),
+        details: "Đánh giá tài sản",
+        notes: notes,
+        previousStatus: selectedAsset?.status,
+        newStatus: selectedAsset?.status,
+        condition: condition,
       });
       toast.success("Đã lưu đánh giá tài sản.");
       await refreshAssets();
@@ -733,8 +777,13 @@ export function Assets() {
             assetType={selectedAssetType ?? null}
             department={selectedDepartmentEntity ?? null}
             assignedUser={assignedUserEntity ?? null}
-            createdBy={null}
-            history={[]}
+            createdBy={users.find(
+              (user) => user.id === selectedAsset.createdBy
+            ) ?? null}
+            users={users}
+            history={assetHistories.filter(
+              (assetHistorie) => assetHistorie.assetId === selectedAsset.id
+            )}
           />
           <AssignAssetDialog
             asset={selectedAsset}

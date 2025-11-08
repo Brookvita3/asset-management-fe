@@ -153,10 +153,10 @@ export function AssetTypes() {
     try {
       if (selectedAssetType) {
         await updateAssetTypeAPI(selectedAssetType.id, values);
-        toast.success('Da cap nhat loai tai san.');
+        toast.success('Đã cập nhật loại tài sản.');
       } else {
         await createAssetTypeAPI(values);
-        toast.success('Da tao loai tai san moi.');
+        toast.success('Đã tạo loại tài sản mới.');
       }
       setDialogOpen(false);
       setSelectedAssetType(null);
@@ -176,16 +176,16 @@ export function AssetTypes() {
 
     try {
       await deleteAssetTypeAPI(assetTypePendingDelete.id);
-      toast.success('Da xoa loai tai san.');
+      toast.success('Đã xóa loại tài sản.');
       setDeleteDialogOpen(false);
       setAssetTypePendingDelete(null);
       fetchAssetTypes();
-  } catch (error: any) {
-    console.error('Lỗi xóa loại tài sản:', error);
-    const message =
-      typeof error?.message === 'string'
-        ? error.message
-        : 'Không thể xóa loại tài sản.';
+    } catch (error: any) {
+      console.error('Lỗi xóa loại tài sản:', error);
+      const message =
+        typeof error?.message === 'string'
+          ? error.message
+          : 'Không thể xóa loại tài sản.';
       toast.error(message);
     }
   };
@@ -194,14 +194,14 @@ export function AssetTypes() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-gray-900 dark:text-gray-50">Quan ly Loai tai san</h1>
+          <h1 className="text-gray-900 dark:text-gray-50">Quản lý Loại tài sản</h1>
           <p className="text-gray-600 dark:text-gray-400">
-            Theo doi, tao moi, chinh sua va vo hieu hoa cac loai tai san trong he thong.
+            Theo dõi, tạo mới, chỉnh sửa và vô hiệu hóa các loại tài sản trong hệ thống.
           </p>
         </div>
         <Button className="bg-blue-600" onClick={handleCreate}>
           <Plus className="w-4 h-4 mr-2" />
-          Them loai tai san
+          Thêm loại tài sản
         </Button>
       </div>
 
@@ -211,7 +211,7 @@ export function AssetTypes() {
             <div className="relative md:col-span-2">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
               <Input
-                placeholder="Tim kiem theo ten hoac mo ta..."
+                placeholder="Tìm kiếm theo tên hoặc mô tả..."
                 value={searchTerm}
                 onChange={(event) => setSearchTerm(event.target.value)}
                 className="pl-10"
@@ -223,9 +223,9 @@ export function AssetTypes() {
                 <SelectValue placeholder="Status" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="all">Tat ca trang thai</SelectItem>
-                <SelectItem value="active">Hoat dong</SelectItem>
-                <SelectItem value="inactive">Ngung hoat dong</SelectItem>
+                <SelectItem value="all">Tất cả trạng thái</SelectItem>
+                <SelectItem value="active">Hoạt động</SelectItem>
+                <SelectItem value="inactive">Ngừng hoạt động</SelectItem>
               </SelectContent>
             </Select>
 
@@ -241,10 +241,10 @@ export function AssetTypes() {
                 <SelectValue placeholder="Sap xep" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="name-asc">Ten A-Z</SelectItem>
-                <SelectItem value="name-desc">Ten Z-A</SelectItem>
-                <SelectItem value="description-asc">Mo ta A-Z</SelectItem>
-                <SelectItem value="description-desc">Mo ta Z-A</SelectItem>
+                <SelectItem value="name-asc">Tên A-Z</SelectItem>
+                <SelectItem value="name-desc">Tên Z-A</SelectItem>
+                <SelectItem value="description-asc">Mô tả A-Z</SelectItem>
+                <SelectItem value="description-desc">Mô tả Z-A</SelectItem>
               </SelectContent>
             </Select>
           </div>
@@ -262,23 +262,23 @@ export function AssetTypes() {
             <Table>
               <TableHeader>
                 <TableRow className="bg-gray-50 dark:bg-gray-800/50 hover:bg-gray-50 dark:hover:bg-gray-800/50">
-                  <TableHead className="font-semibold">Ten loai tai san</TableHead>
-                  <TableHead className="font-semibold">Mo ta</TableHead>
-                  <TableHead className="font-semibold">Trang thai</TableHead>
-                  <TableHead className="text-right font-semibold">Thao tac</TableHead>
+                  <TableHead className="font-semibold">Tên loại tài sản</TableHead>
+                  <TableHead className="font-semibold">Mô tả</TableHead>
+                  <TableHead className="font-semibold">Trạng thái</TableHead>
+                  <TableHead className="text-right font-semibold">Thao tác</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {isLoading ? (
                   <TableRow>
                     <TableCell colSpan={4} className="py-10 text-center text-gray-500 dark:text-gray-400">
-                      Dang tai du lieu...
+                      Đang tải dữ liệu...
                     </TableCell>
                   </TableRow>
                 ) : paginatedAssetTypes.length === 0 ? (
                   <TableRow>
                     <TableCell colSpan={4} className="py-10 text-center text-gray-500 dark:text-gray-400">
-                      Khong tim thay loai tai san phu hop.
+                      Không tìm thấy loại tài sản phù hợp.
                     </TableCell>
                   </TableRow>
                 ) : (
@@ -301,7 +301,7 @@ export function AssetTypes() {
                               : "bg-gray-100 text-gray-800 border-gray-200 dark:bg-gray-800 dark:text-gray-300 dark:border-gray-700"
                           }
                         >
-                        {assetType.isActive ? 'Hoat dong' : 'Ngung hoat dong'}
+                          {assetType.isActive ? 'Hoạt động' : 'Ngừng hoạt động'}
                         </Badge>
                       </TableCell>
                       <TableCell className="text-right">

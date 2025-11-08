@@ -47,3 +47,15 @@ export interface UserDTO {
   createdAt?: string;
   avatarUrl?: string;
 }
+
+export interface AssetHistoryDTO {
+  id: number;
+  assetId: number;
+  actionType: string;
+  performedBy: string;
+  performedAt: string;
+  details?: string;
+  notes?: string;
+  previousStatus?: string;
+  newStatus?: string;
+}

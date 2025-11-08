@@ -28,6 +28,7 @@ export interface AssetFormValues {
   name: string;
   typeId: string;
   departmentId?: string;
+  assignedTo?: number;
   purchaseDate: string;
   value: number;
   description?: string;
@@ -71,6 +72,7 @@ export function AssetFormDialog({
     typeId: "",
     departmentId: "",
     purchaseDate: "",
+    assignedTo: "",
     value: "",
     description: "",
   });
@@ -104,6 +106,7 @@ export function AssetFormDialog({
       typeId: "",
       departmentId: "",
       purchaseDate: "",
+      assignedTo: "",
       value: "",
       description: "",
     });
@@ -116,6 +119,7 @@ export function AssetFormDialog({
       typeId: "",
       departmentId: "",
       purchaseDate: "",
+      assignedTo: "",
       value: "",
       description: "",
     };
@@ -154,27 +158,6 @@ export function AssetFormDialog({
     return !hasError;
   };
 
-  const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
-    if (!file) return;
-
-    if (!file.type.startsWith("image/")) {
-      toast.error("Vui lòng chọn tệp hình ảnh.");
-      return;
-    }
-    if (file.size > 5 * 1024 * 1024) {
-      toast.error("Kích thước ảnh tối đa 5MB.");
-      return;
-    }
-
-    setSelectedFile(file);
-
-    const reader = new FileReader();
-    reader.onloadend = () => {
-      setPreview(reader.result as string);
-    };
-    reader.readAsDataURL(file);
-  };
 
   const handleSubmit = async (event: React.FormEvent) => {
     event.preventDefault();
@@ -273,6 +256,7 @@ export function AssetFormDialog({
             <div className="space-y-2">
               <Label htmlFor="asset-department">Phòng ban</Label>
               <Select
+
                 value={formValues.departmentId ?? NONE_DEPARTMENT_VALUE}
                 onValueChange={(value) =>
                   setFormValues((prev) => ({
@@ -281,6 +265,7 @@ export function AssetFormDialog({
                       value === NONE_DEPARTMENT_VALUE ? undefined : value,
                   }))
                 }
+                disabled={true}
               >
                 <SelectTrigger id="asset-department">
                   <SelectValue placeholder="Chọn phòng ban" />

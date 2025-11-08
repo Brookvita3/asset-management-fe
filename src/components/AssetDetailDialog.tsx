@@ -11,13 +11,13 @@ import { Separator } from "./ui/separator";
 // import { mockAssetTypes, mockDepartments, mockUsers, mockAssetHistory } from "../lib/mockData";
 import { Asset, AssetHistory, AssetType, Department, User } from "../types";
 import {
-    formatCurrency,
-    formatDate,
-    formatDateTime,
-    getConditionColor,
-    getConditionLabel,
-    getStatusColor,
-    getStatusLabel,
+  formatCurrency,
+  formatDate,
+  formatDateTime,
+  getConditionColor,
+  getConditionLabel,
+  getStatusColor,
+  getStatusLabel,
 } from "../lib/utils";
 import { Building2, Calendar, ClipboardList, Package, User as UserIcon } from "lucide-react";
 
@@ -29,6 +29,7 @@ interface AssetDetailDialogProps {
   department?: Department | null;
   assignedUser?: User | null;
   createdBy?: User | null;
+  users?: User[];
   history?: AssetHistory[];
 }
 
@@ -40,6 +41,7 @@ export function AssetDetailDialog({
   department,
   assignedUser,
   createdBy,
+  users,
   history = [],
 }: AssetDetailDialogProps) {
   const sortedHistory = [...history].sort(
@@ -180,7 +182,8 @@ export function AssetDetailDialog({
                           <p className="text-gray-900">{item.details}</p>
                           <p className="text-sm text-gray-600 mt-1">
                             {item.performedBy
-                              ? `${item.performedBy} • ${formatDateTime(item.performedAt)}`
+                              // check nếu performedBy match 1 user trong users prop thì hiển thị tên user đó
+                              ? `${users?.find((user) => user.id === String(item.performedBy))?.name} • ${formatDateTime(item.performedAt)}`
                               : formatDateTime(item.performedAt)}
                           </p>
                           {item.notes && (

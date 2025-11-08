@@ -1,6 +1,7 @@
 import axios from "./axios.customize";
 import { ApiResponse } from "../types/api";
-import { AssetDTO } from "../types/backend";
+import { AssetDTO, AssetHistoryDTO } from "../types/backend";
+import { Asset } from "../types";
 
 const BASE_PATH = "/api/v1/assets";
 
@@ -28,6 +29,20 @@ export const reclaimAssetAPI = (id: number) =>
   axios.post<ApiResponse<null>>(`${BASE_PATH}/${id}/reclaim`, {});
 
 export const evaluateAssetAPI = (
-  id: number,
-  payload: { condition: string; notes?: string }
-) => axios.post<ApiResponse<null>>(`${BASE_PATH}/${id}/evaluate`, payload);
+  assetId: number,
+
+  //     private String actionType;
+  //     private Long performedBy;
+  //     private String performedAt;
+  //     private String details;
+  //     private String notes;
+  //     private String previousStatus;
+  //     private String newStatus;
+
+
+  payload: { performedBy: number; details: string; notes?: string; previousStatus?: string; newStatus?: string; condition?: string }
+) => axios.post<ApiResponse<null>>(`${BASE_PATH}/${assetId}/evaluate`, payload);
+
+
+export const getAssetHistoryAPI = () =>
+  axios.get<ApiResponse<AssetHistoryDTO[]>>(`${BASE_PATH}/history`);

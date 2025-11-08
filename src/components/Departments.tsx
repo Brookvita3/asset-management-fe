@@ -51,7 +51,7 @@ export function Departments() {
     setIsLoading(true);
     setErrorMessage(null);
     try {
-      const [deptResponse, userResponse] = await Promise.all([
+      const [deptResponse, userResponse]: any = await Promise.all([
         getDepartmentsAPI(),
         getUsersAPI(),
       ]);
@@ -116,6 +116,7 @@ export function Departments() {
         await updateDepartmentAPI(Number(selectedDepartment.id), {
           name: values.name,
           description: values.description,
+          employeeCount: values.employeeCount ? Number(values.employeeCount) : 0,
           managerId: values.managerId ? Number(values.managerId) : undefined,
           isActive: values.isActive,
         });
@@ -124,6 +125,7 @@ export function Departments() {
         await createDepartmentAPI({
           name: values.name,
           description: values.description,
+          employeeCount: 0,
           managerId: values.managerId ? Number(values.managerId) : undefined,
           isActive: values.isActive,
         });

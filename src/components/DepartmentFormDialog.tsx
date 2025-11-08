@@ -27,6 +27,7 @@ import { toast } from "sonner";
 export interface DepartmentFormValues {
   name: string;
   description: string;
+  employeeCount: number;
   managerId?: string;
   isActive: boolean;
 }
@@ -51,6 +52,7 @@ export function DepartmentFormDialog({
   const [formValues, setFormValues] = useState<DepartmentFormValues>({
     name: "",
     description: "",
+    employeeCount: 0,
     managerId: undefined,
     isActive: true,
   });
@@ -60,6 +62,7 @@ export function DepartmentFormDialog({
       setFormValues({
         name: department.name,
         description: department.description,
+        employeeCount: department.employeeCount,
         managerId: department.managerId,
         isActive: department.isActive,
       });
@@ -67,6 +70,7 @@ export function DepartmentFormDialog({
       setFormValues({
         name: "",
         description: "",
+        employeeCount: 0,
         managerId: undefined,
         isActive: true,
       });
@@ -160,6 +164,7 @@ export function DepartmentFormDialog({
             <div className="space-y-2">
               <Label htmlFor="department-manager">Trưởng phòng</Label>
               <Select
+                disabled={true}
                 value={formValues.managerId ?? "none"}
                 onValueChange={(value) =>
                   setFormValues((prev) => ({

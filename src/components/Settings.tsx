@@ -41,7 +41,7 @@ export function Settings() {
 
       <div className="grid gap-6">
         {/* Notification Settings */}
-        <Card>
+        {/* <Card>
           <CardHeader>
             <div className="flex items-center gap-2">
               <Bell className="w-5 h-5 text-blue-600" />
@@ -89,7 +89,7 @@ export function Settings() {
               </p>
             </div>
           </CardContent>
-        </Card>
+        </Card> */}
 
         {/* Chatbot Settings */}
         <Card>
