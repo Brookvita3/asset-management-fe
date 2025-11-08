@@ -27,20 +27,20 @@ export function Login({ onLogin }: LoginProps) {
 
   const metadata = {
     [UserRole.ADMIN]: {
-      title: 'Administrator',
-      description: 'Full platform access for organisation-wide management.',
+      title: 'Quản trị viên',
+      description: 'Quản trị viên có quyền truy cập đầy đủ vào nền tảng để quản lý toàn tổ chức.',
       icon: Shield,
       color: 'blue' as const,
     },
     [UserRole.MANAGER]: {
-      title: 'Manager',
-      description: 'Manage assets and teams within your department.',
+      title: 'Quản lý',
+      description: 'Quản lý tài sản và đội ngũ trong phòng ban của bạn.',
       icon: Briefcase,
       color: 'green' as const,
     },
     [UserRole.STAFF]: {
-      title: 'Staff',
-      description: 'Track personal assignments and asset history.',
+      title: 'Nhân viên',
+      description: 'Theo dõi các nhiệm vụ cá nhân và lịch sử tài sản.',
       icon: Users,
       color: 'purple' as const,
     },
@@ -60,7 +60,7 @@ export function Login({ onLogin }: LoginProps) {
       const message =
         typeof error?.message === 'string'
           ? error.message
-          : 'Sign-in failed. Please verify your credentials.';
+          : 'Đăng nhập không thành công. Vui lòng kiểm tra lại thông tin đăng nhập của bạn.';
       toast.error(message);
     } finally {
       setIsSubmitting(null);
@@ -80,10 +80,10 @@ export function Login({ onLogin }: LoginProps) {
             </div>
           </div>
           <h1 className="text-gray-900 mb-2 text-xl font-semibold">
-            Asset Management Platform
+            Nền tảng Quản lý Tài sản
           </h1>
           <p className="text-gray-600 text-sm">
-            Choose a role to continue
+            Chọn vai trò để tiếp tục
           </p>
         </div>
 
@@ -100,7 +100,7 @@ export function Login({ onLogin }: LoginProps) {
                   className={`w-full flex items-center justify-center gap-2 ${palette.button}`}
                 >
                   <Icon className="w-5 h-5" />
-                  Continue as {title}
+                  Tiếp tục với {title}
                 </Button>
               );
             })}
@@ -127,7 +127,7 @@ export function Login({ onLogin }: LoginProps) {
                     onClick={() => setSelectedRole(null)}
                   >
                     <ArrowLeft className="w-4 h-4 mr-1" />
-                    Back
+                    Trở lại
                   </Button>
                 </div>
                 <CardTitle>{title}</CardTitle>
@@ -159,7 +159,7 @@ export function Login({ onLogin }: LoginProps) {
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1" htmlFor="password">
-                      Password
+                      Mật khẩu
                     </label>
                     <input
                       id="password"
@@ -175,7 +175,7 @@ export function Login({ onLogin }: LoginProps) {
                     className={`w-full ${palette.button}`}
                     disabled={loading}
                   >
-                    {loading ? 'Signing in…' : `Login as ${title}`}
+                    {loading ? 'Đang đăng nhập…' : `Đăng nhập với ${title}`}
                   </Button>
                 </form>
               </CardContent>
