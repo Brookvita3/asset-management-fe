@@ -54,8 +54,8 @@ export default defineConfig({
     outDir: 'build',
   },
   server: {
-    cors: true,
-    host: true,
+    // cors: true,
+    // host: true,
     proxy: {
       '/api': {
         target: 'http://16.176.162.249:8080',
